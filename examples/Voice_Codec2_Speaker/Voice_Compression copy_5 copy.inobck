@@ -1,0 +1,494 @@
+/*
+ * @Description:
+            Example of microphone speaker
+        Re output the microphone input data from the speaker
+ * @Author: LILYGO_L
+ * @Date: 2023-12-21 11:30:50
+ * @LastEditTime: 2024-10-22 10:35:06
+ * @License: GPL 3.0
+ */
+#include "Arduino_DriveBus_Library.h"
+#include "pin_config.h"
+#include "codec2.h"
+// #include "ButterworthFilter.h"
+
+#define IIS_SAMPLE_RATE 8000 // 采样速率
+#define MSM_IIS_DATA_BIT 16  // 数据位数
+
+#define MAX_IIS_DATA_BIT 16 // 数据位数
+
+#define IIS_BUF_SIZE 100
+#define CODE2_BUF_SIZE 512
+
+char IIS_Read_Buf[IIS_BUF_SIZE];
+char IIS_Write_Buf[5000];
+
+bool MAX_Play_Flag = false;
+
+bool Codec2_Encode_Run_Flag = false;
+bool Codec2_Decode_Run_Flag = false;
+
+short codec2_buf_temp_1[CODE2_BUF_SIZE];
+uint8_t codec2_buf_temp_2_size_1 = 0;
+uint8_t codec2_buf_temp_2_size_2 = 0;
+uint8_t codec2_buf_temp_2[40];
+short codec2_buf_temp_3[CODE2_BUF_SIZE];
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+
+std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus_0));
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
+                                    MAX98357A_DATA);
+
+std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
+
+// Implement a high pass 240Hz Butterworth Filter.
+// ButterworthFilter hp_filter(240, 8000, ButterworthFilter::ButterworthFilter::Highpass, 1);
+
+// The codec2
+// struct CODEC2 *codec2_state;
+
+bool IIS_Mono_Processing(char *data, int32_t length, bool channel)
+{
+    if (length < 0 || data == NULL)
+    {
+        return false;
+    }
+
+    // 右声道复制到左声道
+    if (channel == 0)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i], &data[i + 2], 2);
+        }
+    }
+
+    // 左声道复制到右声道
+    if (channel == 1)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i + 2], &data[i], 2);
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Decibel_Conversion(char *char_data, short *short_data,
+                            uint32_t convert_char_sizes, bool mode)
+{
+    if (convert_char_sizes < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    uint32_t convert_sizes = convert_char_sizes / 2;
+
+    // char to short
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_sizes; i++)
+        {
+            *short_data = (int16_t)((int16_t)char_data[i * 2] | (int16_t)char_data[i * 2 + 1] << 8);
+            short_data++;
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_sizes; i++)
+        {
+            char_data[i * 2] = *short_data;
+            char_data[i * 2 + 1] = *short_data >> 8;
+            short_data++;
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Compression_Decompression_Conversion(short *original_data, short *compression_data,
+                                              uint32_t convert_original_sizes, bool channel_sizes, bool mode)
+{
+    if (convert_original_sizes < 0 || original_data == NULL || compression_data == NULL)
+    {
+        return false;
+    }
+
+    short first_byte = 0, last_byte = 0;
+
+    if (channel_sizes == 1) // 单声道
+    {
+        uint32_t convert_sizes = (convert_original_sizes / 4) - 1;
+
+        // compression
+        if (mode == 0)
+        {
+            first_byte = original_data[0];
+            last_byte = original_data[convert_original_sizes - 1]; // 数组从0开始
+
+            *compression_data = first_byte; // 首字节写入
+            compression_data++;
+
+            original_data += 2; // 跳过首字节
+            for (uint32_t i = 0; i < convert_sizes; i++)
+            {
+                *compression_data = original_data[i * 4];
+                compression_data++;
+            }
+
+            *compression_data = last_byte; // 末字节写入
+        }
+        else // decompression
+        {
+            first_byte = compression_data[0];
+            last_byte = compression_data[convert_sizes + 1]; // 这里加上1指的是首字节和末字节
+
+            for (uint8_t i = 0; i < 2; i++) // 首字节写入
+            {
+                *original_data = first_byte;
+                original_data++;
+            }
+
+            compression_data++; // 跳过首字节
+
+            for (uint32_t i = 0; i < convert_sizes; i++)
+            {
+                for (uint8_t j = 0; j < 4; j++)
+                {
+                    *original_data = compression_data[i];
+                    original_data++;
+                }
+            }
+
+            for (uint8_t i = 0; i < 2; i++) // 末字节写入
+            {
+                *original_data = last_byte;
+                original_data++;
+            }
+        }
+    }
+    else if (channel_sizes == 2)
+    {
+    }
+
+    return true;
+}
+
+bool IIS_Char_Short_Conversion(char *char_data, short *short_data,
+                               uint32_t convert_sizes, bool mode)
+{
+    if (convert_sizes < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    double char_conversion_coefficient = (127.0 / 32767.0);
+    double short_conversion_coefficient = 32767.0 / 127.0;
+
+    // char to short-
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_sizes; i++)
+        {
+            char_data[i] = short_data[i] * char_conversion_coefficient;
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_sizes; i++)
+        {
+            short_data[i] = char_data[i] * short_conversion_coefficient;
+        }
+    }
+
+    return true;
+}
+
+bool IIS_8BIT_16BIT_Conversion(char *data_8bit, char *data_16bit,
+                               uint32_t convert_data_8bit_sizes, bool mode)
+{
+    if (convert_data_8bit_sizes < 0 || data_8bit == NULL || data_16bit == NULL)
+    {
+        return false;
+    }
+
+    // 8bit to 16bit
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_data_8bit_sizes; i++)
+        {
+            *data_16bit = data_8bit[i];
+            data_16bit++;
+            *data_16bit = data_8bit[i];
+            data_16bit++;
+        }
+    }
+    else // short to char
+    {
+    }
+
+    return true;
+}
+
+// 将 8 位音频数据转换为 16 位音频数据
+void Convert8BitTo16Bit(const std::vector<char> &input, std::vector<int16_t> &output)
+{
+    // 确保输出容器大小足够
+    output.resize(input.size());
+
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        // 将 8 位有符号数据转换为 16 位有符号数据
+        output[i] = static_cast<int16_t>(static_cast<int8_t>(input[i]) << 8);
+    }
+}
+
+// 将 16 位音频数据提取为 PCM 格式的 char 数组
+void Convert16BitToPCM(const std::vector<int16_t> &input, std::vector<char> &output)
+{
+    // 每个 16 位样本转换为 2 个字节
+    output.resize(input.size() * 2);
+
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        output[i * 2] = static_cast<char>(input[i] & 0xFF);            // 低字节
+        output[i * 2 + 1] = static_cast<char>((input[i] >> 8) & 0xFF); // 高字节
+    }
+}
+
+void MSM_Collection_Task(void *)
+{
+    while (1)
+    {
+        // 任务延时，模拟每 8000 Hz 读取一次
+        vTaskDelay(pdMS_TO_TICKS(125)); // 125 ms = 8000 Hz
+
+        if (MSM261->IIS_Read_Data(IIS_Read_Buf, IIS_BUF_SIZE) == true)
+        {
+            // 单声道处理
+            // IIS_Mono_Processing(IIS_Read_Buf, IIS_BUF_SIZE, 0);
+
+            MAX_Play_Flag = true;
+        }
+        else
+        {
+            Serial.println("Failed to read MSM261 data");
+        }
+        // }
+    }
+}
+
+void MAX_Play_Task(void *parameter)
+{
+    while (1)
+    {
+        // vTaskDelay(1);
+        // 任务延时，模拟每 8000 Hz 读取一次
+        vTaskDelay(pdMS_TO_TICKS(125)); // 125 ms = 8000 Hz
+
+        if (MAX_Play_Flag == true)
+        {
+            MAX_Play_Flag = false;
+
+            if (MAX98357A->IIS_Write_Data(IIS_Read_Buf, IIS_BUF_SIZE) == true)
+            {
+                // Serial.printf("MAX98357A played successfully\n");
+
+                // for (int i = 0; i < 25; i++)
+                // {
+                //     Serial.printf("debug: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+                // }
+            }
+        }
+        else
+        {
+        }
+    }
+}
+
+// void codec2_watcher(void *parameter)
+// {
+//     while (true)
+//     {
+//         vTaskDelay(1);
+//         if (Codec2_Encode_Run_Flag == true)
+//         {
+//             uint32_t startTimeEncode = millis();
+
+//             // encode the 320 bytes(40ms) of speech frame into 8 bytes
+//             codec2_encode(codec2_state, codec2_buf_temp_2 + codec2_buf_temp_2_size_1, codec2_buf_temp_1);
+//             Codec2_Encode_Run_Flag = false;
+
+//             Serial.println("Done encoding, took ms: " + String(millis() - startTimeEncode));
+//         }
+//         if (Codec2_Decode_Run_Flag == true)
+//         {
+//             uint32_t startTimeDecode = millis();
+
+//             // Decode the codec2 frame
+//             codec2_decode(codec2_state, codec2_buf_temp_3, codec2_buf_temp_2);
+//             Codec2_Decode_Run_Flag = false;
+
+//             Serial.println("Done decoding, took ms: " + String(millis() - startTimeDecode));
+//         }
+//     }
+// }
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
+    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
+                         IIS_SAMPLE_RATE, MSM_IIS_DATA_BIT) == false)
+    {
+        Serial.println("MSM261 initialization fail");
+        delay(2000);
+    }
+    Serial.println("MSM261 initialization successfully");
+
+    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
+                            IIS_SAMPLE_RATE, MAX_IIS_DATA_BIT) == false)
+    {
+        Serial.println("MAX98357A initialization fail");
+        delay(2000);
+    }
+    Serial.println("MAX98357A initialization successfully");
+
+    // MSM261->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+    // MAX98357A->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+
+    xTaskCreate(&MSM_Collection_Task, "MSM_Collection_Task", 30000, NULL, 5, NULL);
+
+    // xTaskCreatePinnedToCore(&MAX_Play_Task, "MAX_Play_Task", 2000, NULL, 24, NULL, 1);
+    xTaskCreate(&MAX_Play_Task, "MAX_Play_Task", 30000, NULL, 5, NULL);
+    // xTaskCreate(&Task_1, "Task_1", 30000, NULL, 5, NULL);
+
+    // xTaskCreate(&MSM_Collection_Task, "MSM_Collection_Task", 30000, NULL, 5, NULL);
+
+    // xTaskCreate(&codec2_watcher, "codec2_watcher_task", 30000, NULL, 5, NULL);
+}
+
+// 示例输入数据（8位有符号数据）
+// std::vector<char> input_data = {0}; // 8-bit samples
+// std::vector<int16_t> output_data;
+
+void loop()
+{
+
+    // 主循环为空，因为所有工作都在任务中完成
+    vTaskDelay(portMAX_DELAY);
+    // if (MSM261->IIS_Read_Data(IIS_Read_Buf, IIS_BUF_SIZE) == true)
+    // {
+    //     // 单声道处理
+    //     IIS_Mono_Processing(IIS_Read_Buf, IIS_BUF_SIZE, 0);
+
+    //     // 任务延时，模拟每 8000 Hz 读取一次
+    //     vTaskDelay(pdMS_TO_TICKS(125)); // 125 ms = 8000 Hz
+
+    //     // std::vector<char> input_data;
+    //     // std::vector<int16_t> output_data;
+    //     // std::vector<char> pcm_data;
+
+    //     // input_data.resize(IIS_BUF_SIZE);
+
+    //     // memcpy(input_data.data(), IIS_Read_Buf, IIS_BUF_SIZE);
+
+    //     // // 调用转换函数
+    //     // Convert8BitTo16Bit(input_data, output_data);
+    //     // Convert16BitToPCM(output_data, pcm_data);
+
+    //     // memcpy(IIS_Write_Buf, pcm_data.data(), pcm_data.size());
+
+    //     // for (int i = 0; i < 100; i++)
+    //     // {
+    //     //     Serial.printf("debug[%d]: %d\n", i, IIS_Read_Buf[i]);
+    //     // }
+    //     // Serial.println();
+
+    //     // short decibel_conversion_buf[IIS_BUF_SIZE] = {0}; // 分贝转换之后只有50个数据
+    //     // short compression_buf[IIS_BUF_SIZE] = {0};
+    //     // short original_buf[IIS_BUF_SIZE] = {0};
+
+    //     // IIS_Decibel_Conversion(IIS_Read_Buf, decibel_conversion_buf, IIS_BUF_SIZE, 0);
+
+    //     // for (int i = 0; i < 60; i++)
+    //     // {
+    //     //     Serial.printf("debug1[%d]: %d\n", i, decibel_conversion_buf[i]);
+    //     // }
+    //     // Serial.println();
+
+    //     // IIS_Compression_Decompression_Conversion(decibel_conversion_buf, compression_buf, IIS_BUF_SIZE / 2, 1, 0);
+
+    //     // for (int i = 0; i < 60; i++)
+    //     // {
+    //     //     Serial.printf("debug2[%d]: %d\n", i, decompression_buf[i]);
+    //     // }
+    //     // Serial.println();
+
+    //     // delay(1);
+
+    //     // IIS_Compression_Decompression_Conversion(original_buf, compression_buf, IIS_BUF_SIZE / 2, 1, 1);
+
+    //     // for (int i = 0; i < 60; i++)
+    //     // {
+    //     //     Serial.printf("debug3[%d]: %d\n", i, original_buf[i]);
+    //     // }
+    //     // Serial.println();
+
+    //     // IIS_Decibel_Conversion(IIS_Write_Buf, original_buf, IIS_BUF_SIZE, 1);
+
+    //     // IIS_8BIT_16BIT_Conversion(IIS_Read_Buf, IIS_Write_Buf, IIS_BUF_SIZE, 0);
+
+    //     // if (MAX98357A->IIS_Write_Data(IIS_Write_Buf, pcm_data.size()) == true)
+    //     // {
+    //     //     // Serial.printf("MAX98357A played successfully\n");
+
+    //     //     // for (int i = 0; i < 25; i++)
+    //     //     // {
+    //     //     //     Serial.printf("debug: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+    //     //     // }
+    //     // }
+
+    //     MAX_Play_Flag = true;
+
+    //     // vTaskDelay(1); // xTask time
+
+    //     // if (MAX98357A->IIS_Write_Data(IIS_Read_Buf, IIS_BUF_SIZE) == true)
+    //     // {
+    //     //     // Serial.printf("MAX98357A played successfully\n");
+
+    //     //     // for (int i = 0; i < 25; i++)
+    //     //     // {
+    //     //     //     Serial.printf("debug: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+    //     //     // }
+    //     // }
+
+    //     // // 输出左声道数据
+    //     // // Serial.printf("Left: %d\n", (int16_t)((int16_t)IIS_Read_Buf[0] | (int16_t)IIS_Read_Buf[1] << 8));
+
+    //     // // 输出右声道数据
+    //     // // Serial.printf("Right: %d\n", (int16_t)((int16_t)IIS_Read_Buf[2] | (int16_t)IIS_Read_Buf[3] << 8));
+
+    //     // // Arduino
+    //     // Serial.println((int16_t)((int16_t)IIS_Write_Buf[0] | (int16_t)IIS_Write_Buf[1] << 8));
+    //     // Serial.print(",");
+    //     // Serial.print((int16_t)((int16_t)IIS_Write_Buf[2] | (int16_t)IIS_Write_Buf[3] << 8));
+    // }
+    // else
+    // {
+    //     Serial.printf("Failed to read MSM261 data");
+    // }
+
+    // delay(1);
+}

@@ -1,0 +1,324 @@
+/*
+ * @Description:
+            Example of microphone speaker
+        Re output the microphone input data from the speaker
+ * @Author: LILYGO_L
+ * @Date: 2023-12-21 11:30:50
+ * @LastEditTime: 2024-10-18 13:32:54
+ * @License: GPL 3.0
+ */
+#include "Arduino_DriveBus_Library.h"
+#include "pin_config.h"
+#include "codec2.h"
+#include "ButterworthFilter.h"
+
+// 44.1 KHz
+#define IIS_SAMPLE_RATE 44100 // 采样速率
+#define IIS_DATA_BIT 16       // 数据位数
+
+#define MSM_READ_BUF_NUMBER 100
+#define MAX_WRITE_BUF_NUMBER 100
+
+char IIS_Read_Buf_1[MSM_READ_BUF_NUMBER];
+char IIS_Read_Buf_2[MSM_READ_BUF_NUMBER];
+
+char IIS_Write_Buf_1[MAX_WRITE_BUF_NUMBER];
+char IIS_Write_Buf_2[MAX_WRITE_BUF_NUMBER];
+
+bool Codec2_Encode_Run_Flag = false;
+bool Codec2_Decode_Run_Flag = false;
+
+short codec2_buf_temp_1[MSM_READ_BUF_NUMBER];
+uint8_t codec2_buf_temp_2_size_1 = 0;
+uint8_t codec2_buf_temp_2_size_2 = 0;
+uint8_t codec2_buf_temp_2[40];
+short codec2_buf_temp_3[MAX_WRITE_BUF_NUMBER];
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+
+std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus_0));
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
+                                    MAX98357A_DATA);
+
+std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
+
+// Implement a high pass 240Hz Butterworth Filter.
+ButterworthFilter hp_filter(240, 8000, ButterworthFilter::ButterworthFilter::Highpass, 1);
+
+// The codec2
+struct CODEC2 *codec2_state;
+
+bool IIS_Mono_Processing(char *data, int32_t length, bool channel)
+{
+    if (length < 0 || data == NULL)
+    {
+        return false;
+    }
+
+    // 右声道复制到左声道
+    if (channel == 0)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i], &data[i + 2], 2);
+        }
+    }
+
+    // 左声道复制到右声道
+    if (channel == 1)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i + 2], &data[i], 2);
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Decibel_Conversion(char *char_data, short *short_data,
+                            uint32_t convert_short_numbers, bool mode)
+{
+    if (convert_short_numbers < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    // char to short
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_short_numbers; i++)
+        {
+            *(short_data++) = (int16_t)((int16_t)char_data[i * 2] | (int16_t)char_data[i * 2 + 1] << 8);
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_short_numbers; i++)
+        {
+            char_data[i * 2] = *short_data;
+            char_data[i * 2 + 1] = *short_data >> 8;
+            short_data++;
+        }
+    }
+
+    return true;
+}
+
+void codec2_watcher(void *parameter)
+{
+    while (true)
+    {
+        // yield() DOES NOT work, that trips the WDT every 5 secs
+        // delay(1) is VITAL
+        delay(1);
+        if (Codec2_Encode_Run_Flag == true)
+        {
+
+            uint32_t startTimeEncode = millis();
+
+            // encode the 320 bytes(40ms) of speech frame into 8 bytes
+            codec2_encode(codec2_state, codec2_buf_temp_2 + codec2_buf_temp_2_size_1, codec2_buf_temp_1);
+            Codec2_Encode_Run_Flag = false;
+
+            Serial.println("Done encoding, took ms: " + String(millis() - startTimeEncode));
+        }
+        if (Codec2_Decode_Run_Flag == true)
+        {
+            uint32_t startTimeDecode = millis();
+
+            // Decode the codec2 frame
+            codec2_decode(codec2_state, codec2_buf_temp_3, codec2_buf_temp_2);
+            Codec2_Decode_Run_Flag = false;
+
+            Serial.println("Done decoding, took ms: " + String(millis() - startTimeDecode));
+        }
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
+    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
+                         IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MSM261 initialization fail");
+        delay(2000);
+    }
+    Serial.println("MSM261 initialization successfully");
+
+    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
+                            IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MAX98357A initialization fail");
+        delay(2000);
+    }
+    Serial.println("MAX98357A initialization successfully");
+
+    // MSM261->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+    // MAX98357A->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+
+    // Init codec2
+    codec2_state = codec2_create(CODEC2_MODE_1200);
+    codec2_set_lpc_post_filter(codec2_state, true, 0, 0.8, 0.2);
+
+    xTaskCreate(&codec2_watcher, "codec2_watcher_task", 30000, NULL, 5, NULL);
+}
+
+void loop()
+{
+    if (MSM261->IIS_Read_Data(IIS_Read_Buf_1, MSM_READ_BUF_NUMBER) == true)
+    {
+        if (MSM261->IIS_Read_Data(IIS_Read_Buf_2, MSM_READ_BUF_NUMBER) == true)
+        {
+            // 单声道处理
+            IIS_Mono_Processing(IIS_Read_Buf_1, MSM_READ_BUF_NUMBER, 0);
+            IIS_Mono_Processing(IIS_Read_Buf_2, MSM_READ_BUF_NUMBER, 0);
+
+            // for (int i = 0; i < 25; i++)
+            // {
+            //     Serial.printf("1: %d\n", (int16_t)(IIS_Read_Buf_1[i + 2] | IIS_Read_Buf_1[i + 3] << 8));
+            // }
+
+            IIS_Decibel_Conversion(IIS_Read_Buf_1, &codec2_buf_temp_1[0], MSM_READ_BUF_NUMBER / 2, 0);
+            IIS_Decibel_Conversion(IIS_Read_Buf_2, &codec2_buf_temp_1[MSM_READ_BUF_NUMBER / 2], MSM_READ_BUF_NUMBER / 2, 0);
+
+            // Apply High Pass Filter
+            // for (int i = 0; i < MSM_READ_BUF_NUMBER; i++)
+            // {
+            //     codec2_buf_temp_1[i] = (int16_t)hp_filter.Update((float)codec2_buf_temp_1[i]);
+            // }
+
+            // Codec2_Encode_Run_Flag = true;
+            // while (Codec2_Encode_Run_Flag)
+            // {
+            //     delay(1); // Wait for the codec2_watch
+            // }
+
+            // Codec2_Decode_Run_Flag = true;
+            // while (Codec2_Decode_Run_Flag)
+            // {
+            //     delay(1); // Wait for the codec2_watch
+            // }
+
+            IIS_Decibel_Conversion(IIS_Write_Buf_1, &codec2_buf_temp_1[0], MAX_WRITE_BUF_NUMBER / 2, 1);
+            IIS_Decibel_Conversion(IIS_Write_Buf_2, &codec2_buf_temp_1[MAX_WRITE_BUF_NUMBER / 2], MAX_WRITE_BUF_NUMBER / 2, 1);
+
+            // Add to the audio Bufer the 320 samples resulting of the decode of the codec2 frame.
+            if (MAX98357A->IIS_Write_Data(IIS_Write_Buf_1, MAX_WRITE_BUF_NUMBER) == true)
+            {
+                if (MAX98357A->IIS_Write_Data(IIS_Write_Buf_2, MAX_WRITE_BUF_NUMBER) == true)
+                {
+                    // Serial.printf("MAX98357A played successfully\n");
+
+                    for (int i = 0; i < 25; i++)
+                    {
+                        Serial.printf("2: %d\n", (int16_t)(IIS_Write_Buf_1[i + 2] | IIS_Write_Buf_1[i + 3] << 8));
+                    }
+                }
+            }
+
+            // // 输出左声道数据
+            // // Serial.printf("Left: %d\n", (int16_t)((int16_t)IIS_Read_Buf[0] | (int16_t)IIS_Read_Buf[1] << 8));
+
+            // // 输出右声道数据
+            // // Serial.printf("Right: %d\n", (int16_t)((int16_t)IIS_Read_Buf[2] | (int16_t)IIS_Read_Buf[3] << 8));
+
+            // // Arduino
+            // Serial.println((int16_t)((int16_t)IIS_Write_Buf_1[0] | (int16_t)IIS_Write_Buf_1[1] << 8));
+            // Serial.print(",");
+            // Serial.print((int16_t)((int16_t)IIS_Write_Buf_1[2] | (int16_t)IIS_Write_Buf_1[3] << 8));
+        }
+    }
+    else
+    {
+        Serial.printf("Failed to read MSM261 data");
+    }
+
+    // if (codec2_buf_temp_2_size_1 < 40)
+    // {
+    //     if (MSM261->IIS_Read_Data(IIS_Read_Buf_1, MSM_READ_BUF_NUMBER) == true)
+    //     {
+    //         if (MSM261->IIS_Read_Data(IIS_Read_Buf_2, MSM_READ_BUF_NUMBER) == true)
+    //         {
+    //             // 单声道处理
+    //             IIS_Mono_Processing(IIS_Read_Buf_1, MSM_READ_BUF_NUMBER, 0);
+    //             IIS_Mono_Processing(IIS_Read_Buf_2, MSM_READ_BUF_NUMBER, 0);
+
+    //             // for (int i = 0; i < 25; i++)
+    //             // {
+    //             //     Serial.printf("1: %d\n", (int16_t)(IIS_Read_Buf_1[i + 2] | IIS_Read_Buf_1[i + 3] << 8));
+    //             // }
+
+    //             IIS_Decibel_Conversion(IIS_Read_Buf_1, &codec2_buf_temp_1[0], 160, 0);
+    //             IIS_Decibel_Conversion(IIS_Read_Buf_2, &codec2_buf_temp_1[160], 160, 0);
+
+    //             // Apply High Pass Filter
+    //             // for (int i = 0; i < MSM_READ_BUF_NUMBER; i++)
+    //             // {
+    //             //     codec2_buf_temp_1[i] = (int16_t)hp_filter.Update((float)codec2_buf_temp_1[i]);
+    //             // }
+
+    //             Codec2_Encode_Run_Flag = true;
+    //             while (Codec2_Encode_Run_Flag)
+    //             {
+    //                 delay(1); // Wait for the codec2_watch
+    //             }
+    //             codec2_buf_temp_2_size_1++;
+
+    //             codec2_buf_temp_2_size_2 = 0;
+    //         }
+    //     }
+    // }
+    // else
+    // {
+    //     codec2_buf_temp_2_size_1 = 0;
+
+    //     Codec2_Decode_Run_Flag = true;
+    //     while (Codec2_Decode_Run_Flag)
+    //     {
+    //         delay(1); // Wait for the codec2_watch
+    //     }
+    //     codec2_buf_temp_2_size_2++;
+
+    //     IIS_Decibel_Conversion(IIS_Write_Buf_1, &codec2_buf_temp_3[0], 160, 1);
+    //     IIS_Decibel_Conversion(IIS_Write_Buf_2, &codec2_buf_temp_3[160], 160, 1);
+
+    //     // Add to the audio Bufer the 320 samples resulting of the decode of the codec2 frame.
+    //     if (MAX98357A->IIS_Write_Data(IIS_Write_Buf_1, MAX_WRITE_BUF_NUMBER) == true)
+    //     {
+    //         if (MAX98357A->IIS_Write_Data(IIS_Write_Buf_2, MAX_WRITE_BUF_NUMBER) == true)
+    //         {
+    //             // Serial.printf("MAX98357A played successfully\n");
+
+    //             // for (int i = 0; i < 25; i++)
+    //             // {
+    //             //     Serial.printf("2: %d\n", (int16_t)(IIS_Write_Buf_1[i + 2] | IIS_Write_Buf_1[i + 3] << 8));
+    //             // }
+    //         }
+    //     }
+
+    //     // // 输出左声道数据
+    //     // // Serial.printf("Left: %d\n", (int16_t)((int16_t)IIS_Read_Buf[0] | (int16_t)IIS_Read_Buf[1] << 8));
+
+    //     // // 输出右声道数据
+    //     // // Serial.printf("Right: %d\n", (int16_t)((int16_t)IIS_Read_Buf[2] | (int16_t)IIS_Read_Buf[3] << 8));
+
+    //     // // Arduino
+    //     // Serial.println((int16_t)((int16_t)IIS_Write_Buf_1[0] | (int16_t)IIS_Write_Buf_1[1] << 8));
+    //     // Serial.print(",");
+    //     // Serial.print((int16_t)((int16_t)IIS_Write_Buf_1[2] | (int16_t)IIS_Write_Buf_1[3] << 8));
+    // }
+
+    // delay(1);
+}

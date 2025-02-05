@@ -1,0 +1,511 @@
+/*
+ * @Description:
+            Example of microphone speaker
+        Re output the microphone input data from the speaker
+ * @Author: LILYGO_L
+ * @Date: 2023-12-21 11:30:50
+ * @LastEditTime: 2024-10-21 10:22:46
+ * @License: GPL 3.0
+ */
+#include "Arduino_DriveBus_Library.h"
+#include "pin_config.h"
+#include "codec2.h"
+#include "ButterworthFilter.h"
+
+// 44.1 KHz
+#define IIS_SAMPLE_RATE 44100 // 采样速率
+#define IIS_DATA_BIT 16       // 数据位数
+
+#define IIS_BUF_SIZE 512
+#define CODE2_BUF_SIZE 512
+
+struct Audio_DATA_Stream_Operator
+{
+    std::vector<char> iis_read_data_stream;
+
+    std::vector<unsigned char> send_data_stream;
+
+    std::vector<unsigned char> receive_data_stream;
+
+    std::vector<char> iis_write_data_stream;
+};
+
+unsigned char Transferred_Data_Buf[8] = {0};
+bool Transferred_Data_Flag = false;
+
+char IIS_Write_Buf[IIS_BUF_SIZE];
+
+bool Codec2_Encode_Run_Flag = false;
+bool Codec2_Decode_Run_Flag = false;
+
+short codec2_buf_temp_1[CODE2_BUF_SIZE];
+uint8_t codec2_buf_temp_2_size_1 = 0;
+uint8_t codec2_buf_temp_2_size_2 = 0;
+uint8_t codec2_buf_temp_2[40];
+short codec2_buf_temp_3[CODE2_BUF_SIZE];
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+
+std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus_0));
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
+                                    MAX98357A_DATA);
+
+std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
+
+// Implement a high pass 240Hz Butterworth Filter.
+ButterworthFilter HP_Filter(240, 8000, ButterworthFilter::ButterworthFilter::Highpass, 1);
+
+// The codec2
+struct CODEC2 *Codec2_State;
+
+Audio_DATA_Stream_Operator Audio_Stream_OP;
+
+bool IIS_Mono_Conversion(char *data, int32_t length, bool channel)
+{
+    if (length < 0 || data == NULL)
+    {
+        return false;
+    }
+
+    // 右声道复制到左声道
+    if (channel == 0)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memcpy(&data[i], &data[i + 2], 2);
+        }
+    }
+
+    // 左声道复制到右声道
+    if (channel == 1)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memcpy(&data[i + 2], &data[i], 2);
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Decibel_Conversion(char *char_data, short *short_data,
+                            uint32_t convert_char_size, bool mode)
+{
+    if (convert_char_size < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    uint32_t convert_size = convert_char_size / 2;
+
+    // char to short
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_size; i++)
+        {
+            *short_data = (int16_t)((int16_t)char_data[i * 2] | (int16_t)char_data[i * 2 + 1] << 8);
+            short_data++;
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_size; i++)
+        {
+            char_data[i * 2] = *short_data;
+            char_data[i * 2 + 1] = *short_data >> 8;
+            short_data++;
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Compression_Decompression_Conversion(short *original_data, short *compression_data,
+                                              uint32_t convert_original_size, bool channel_numbers, bool mode)
+{
+    if (convert_original_size < 0 || original_data == NULL || compression_data == NULL)
+    {
+        return false;
+    }
+
+    short first_byte = 0, last_byte = 0;
+
+    if (channel_numbers == 1) // 单声道
+    {
+        uint32_t convert_size = (convert_original_size / 4) - 1;
+
+        // compression
+        if (mode == 0)
+        {
+            first_byte = original_data[0];
+            last_byte = original_data[convert_original_size - 1]; // 数组从0开始
+
+            *compression_data = first_byte; // 首字节写入
+            compression_data++;
+
+            original_data += 2; // 跳过首字节
+            for (uint32_t i = 0; i < convert_size; i++)
+            {
+                *compression_data = original_data[i * 4];
+                compression_data++;
+            }
+
+            *compression_data = last_byte; // 末字节写入
+        }
+        else // decompression
+        {
+            first_byte = compression_data[0];
+            last_byte = compression_data[convert_size + 1]; // 这里加上1指的是首字节和末字节
+
+            for (uint8_t i = 0; i < 2; i++) // 首字节写入
+            {
+                *original_data = first_byte;
+                original_data++;
+            }
+
+            compression_data++; // 跳过首字节
+
+            for (uint32_t i = 0; i < convert_size; i++)
+            {
+                for (uint8_t j = 0; j < 4; j++)
+                {
+                    *original_data = compression_data[i];
+                    original_data++;
+                }
+            }
+
+            for (uint8_t i = 0; i < 2; i++) // 末字节写入
+            {
+                *original_data = last_byte;
+                original_data++;
+            }
+        }
+    }
+    else if (channel_numbers == 2)
+    {
+    }
+
+    return true;
+}
+
+bool IIS_Char_Short_Conversion(char *char_data, short *short_data,
+                               uint32_t convert_size, bool mode)
+{
+    if (convert_size < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    double char_conversion_coefficient = (127.0 / 32767.0);
+    double short_conversion_coefficient = 32767.0 / 127.0;
+
+    // char to short-
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_size; i++)
+        {
+            char_data[i] = short_data[i] * char_conversion_coefficient;
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_size; i++)
+        {
+            short_data[i] = char_data[i] * short_conversion_coefficient;
+        }
+    }
+
+    return true;
+}
+
+void MSM_Collection_Task(void *parameter)
+{
+    const short iis_buf_size = 512;
+    char iis_read_buf[iis_buf_size];
+
+    while (1)
+    {
+        vTaskDelay(1);
+
+        if (Audio_Stream_OP.iis_read_data_stream.size() < (iis_buf_size * 100)) // 流写入限制
+        {
+            if (MSM261->IIS_Read_Data(iis_read_buf, iis_buf_size) == true)
+            {
+                // 单声道转换
+                IIS_Mono_Conversion(iis_read_buf, iis_buf_size, 0);
+
+                size_t current_buf_size = Audio_Stream_OP.iis_read_data_stream.size();
+
+                // 调整容量
+                Audio_Stream_OP.iis_read_data_stream.resize(current_buf_size + iis_buf_size);
+
+                // 存储数据
+                memcpy(Audio_Stream_OP.iis_read_data_stream.data() + current_buf_size, iis_read_buf, iis_buf_size);
+            }
+            else
+            {
+                Serial.println("Failed to read MSM261 data");
+            }
+        }
+    }
+}
+
+void Audio_Compression_Task(void *parameter)
+{
+    const short char_data_buf_size = 2560;
+    const short short_data_buf_size = char_data_buf_size / 2;
+    const short compression_buf_size = char_data_buf_size / 2 / 4;
+    const short codec2_encode_buf_size = 8;
+
+    while (1)
+    {
+        vTaskDelay(1);
+
+        if (Audio_Stream_OP.iis_read_data_stream.size() >= char_data_buf_size) // 流读取判断
+        {
+            char char_data_buf[char_data_buf_size];
+            short short_data_buf[short_data_buf_size];
+            short compression_buf[compression_buf_size];
+            unsigned char codec2_encode_buf[8];
+
+            // 存储数据
+            memcpy(char_data_buf, Audio_Stream_OP.iis_read_data_stream.data(), char_data_buf_size);
+
+            // 删除已经存储的数据
+            Audio_Stream_OP.iis_read_data_stream.erase(Audio_Stream_OP.iis_read_data_stream.begin(),
+                                                       Audio_Stream_OP.iis_read_data_stream.begin() + char_data_buf_size);
+
+            // char转分贝short 大小：原始字节数/2
+            IIS_Decibel_Conversion(char_data_buf, short_data_buf, char_data_buf_size, 0);
+
+            // 提取分贝中有效的部分 大小：原始字节数/2/4
+            IIS_Compression_Decompression_Conversion(short_data_buf, compression_buf,
+                                                     short_data_buf_size, 1, 0);
+
+            uint32_t startTimeEncode = millis();
+
+            // Encode the 320 bytes(40ms) of speech stream into 8 bytes
+            codec2_encode(Codec2_State, codec2_encode_buf, compression_buf);
+
+            Serial.println("Done encoding, took ms: " + String(millis() - startTimeEncode));
+
+            if (Audio_Stream_OP.send_data_stream.size() < (codec2_encode_buf_size * 100)) // 流写入限制
+            {
+                size_t current_buf_size = Audio_Stream_OP.send_data_stream.size();
+
+                // 调整容量
+                Audio_Stream_OP.send_data_stream.resize(current_buf_size + codec2_encode_buf_size);
+
+                // 存储数据
+                memcpy(Audio_Stream_OP.send_data_stream.data() + current_buf_size, codec2_encode_buf, codec2_encode_buf_size);
+            }
+        }
+    }
+}
+
+void Send_Data_Task(void *parameter)
+{
+    const short send_data_buf_size = 8;
+
+    while (1)
+    {
+        vTaskDelay(1);
+        if (Audio_Stream_OP.send_data_stream.size() >= send_data_buf_size) // 流读取判断
+        {
+            char send_data_buf[send_data_buf_size];
+
+            // 存储数据
+            memcpy(send_data_buf, Audio_Stream_OP.send_data_stream.data(), send_data_buf_size);
+
+            // 删除已经存储的数据
+            Audio_Stream_OP.send_data_stream.erase(Audio_Stream_OP.send_data_stream.begin(),
+                                                   Audio_Stream_OP.send_data_stream.begin() + send_data_buf_size);
+
+            for (uint8_t i = 0; i < 8; i++)
+            {
+                // 模拟数据传输
+                Transferred_Data_Buf[i] = send_data_buf[i];
+                Transferred_Data_Flag = true;
+            }
+
+            delay(1); // 模拟发送所花费的时间
+        }
+    }
+}
+
+void Receive_Data_Task(void *parameter)
+{
+    const short receive_data_buf_size = 8;
+
+    while (1)
+    {
+        vTaskDelay(1);
+
+        if (Transferred_Data_Flag == true) // 接收开始
+        {
+
+            delay(1); // 模拟接收所花费的时间
+
+            if (Audio_Stream_OP.receive_data_stream.size() < (receive_data_buf_size * 100)) // 流写入限制
+            {
+                size_t current_buf_size = Audio_Stream_OP.receive_data_stream.size();
+
+                // 调整容量
+                Audio_Stream_OP.receive_data_stream.resize(current_buf_size + receive_data_buf_size);
+
+                // 存储数据
+                memcpy(Audio_Stream_OP.receive_data_stream.data() + current_buf_size, Transferred_Data_Buf, receive_data_buf_size);
+            }
+        }
+    }
+}
+
+void Audio_Decompression_Task(void *parameter)
+{
+    const short char_data_buf_size = 2560;
+    const short short_data_buf_size = char_data_buf_size / 2;
+    const short compression_buf_size = char_data_buf_size / 2 / 4;
+    const short codec2_decode_buf_size = 8;
+
+    while (1)
+    {
+        vTaskDelay(1);
+
+        if (Audio_Stream_OP.receive_data_stream.size() >= codec2_decode_buf_size) // 流读取判断
+        {
+            char char_data_buf[char_data_buf_size];
+            short short_data_buf[short_data_buf_size];
+            short compression_buf[compression_buf_size];
+            unsigned char codec2_decode_buf[codec2_decode_buf_size];
+
+            // 存储数据
+            memcpy(codec2_decode_buf, Audio_Stream_OP.receive_data_stream.data(), codec2_decode_buf_size);
+
+            // 删除已经存储的数据
+            Audio_Stream_OP.receive_data_stream.erase(Audio_Stream_OP.receive_data_stream.begin(),
+                                                      Audio_Stream_OP.receive_data_stream.begin() + codec2_decode_buf_size);
+
+            uint32_t startTimeEncode = millis();
+
+            for (int i = 0; i < 8; i++)
+            {
+                Serial.printf("debug: %d\n", codec2_decode_buf[i]);
+            }
+
+            // Decode the codec2 stream
+            codec2_decode(Codec2_State, compression_buf, codec2_decode_buf);
+
+            Serial.println("Done decodeing, took ms: " + String(millis() - startTimeEncode));
+
+            // 分解扩容分贝中有效的部分 大小：原始字节数/2/4
+            IIS_Compression_Decompression_Conversion(short_data_buf, compression_buf,
+                                                     short_data_buf_size, 1, 1);
+
+            // 分贝short转char 大小：原始字节数/2
+            IIS_Decibel_Conversion(char_data_buf, short_data_buf, char_data_buf_size, 1);
+
+            if (Audio_Stream_OP.iis_write_data_stream.size() < (char_data_buf_size * 100)) // 流写入限制
+            {
+                size_t current_buf_size = Audio_Stream_OP.iis_write_data_stream.size();
+
+                // 调整容量
+                Audio_Stream_OP.iis_write_data_stream.resize(current_buf_size + char_data_buf_size);
+
+                // 存储数据
+                memcpy(Audio_Stream_OP.iis_write_data_stream.data() + current_buf_size, char_data_buf, char_data_buf_size);
+            }
+        }
+    }
+}
+
+void MAX_Play_Task(void *parameter)
+{
+    const short char_data_buf_size = 1;
+
+    while (1)
+    {
+        vTaskDelay(1);
+
+        if (Audio_Stream_OP.iis_write_data_stream.size() >= 1) // 流读取判断
+        {
+            char char_data_buf[char_data_buf_size];
+
+            // 存储数据
+            memcpy(char_data_buf, Audio_Stream_OP.iis_write_data_stream.data(), char_data_buf_size);
+
+            // 删除已经存储的数据
+            Audio_Stream_OP.iis_write_data_stream.erase(Audio_Stream_OP.iis_write_data_stream.begin(),
+                                                        Audio_Stream_OP.iis_write_data_stream.begin() + char_data_buf_size);
+
+            if (MAX98357A->IIS_Write_Data(char_data_buf, char_data_buf_size) == true)
+            {
+                // Serial.printf("MAX98357A played successfully\n");
+
+                // for (int i = 0; i < 25; i++)
+                // {
+                //     Serial.printf("debug: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+                // }
+            }
+            else
+            {
+                Serial.println("Failed to write MAX98357A data");
+            }
+        }
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    Serial.println("Ciallo");
+
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
+    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
+                         IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MSM261 initialization fail");
+        delay(2000);
+    }
+    Serial.println("MSM261 initialization successfully");
+
+    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
+                            IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MAX98357A initialization fail");
+        delay(2000);
+    }
+    Serial.println("MAX98357A initialization successfully");
+
+    // Init codec2
+    // CODEC2_MODE_1600 encode the 320 bytes(40ms) of speech stream into 8 bytes
+    Codec2_State = codec2_create(CODEC2_MODE_1600);
+    codec2_set_lpc_post_filter(Codec2_State, true, 0, 0.8, 0.2);
+
+    // MSM261->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+    // MAX98357A->IIS_Device_Switch(Arduino_IIS::Device_Switch::Channel_OFF);
+
+    xTaskCreate(&MSM_Collection_Task, "MSM_Collection_Task", 30000, NULL, 5, NULL);
+
+    xTaskCreate(&Audio_Compression_Task, "Audio_Compression_Task", 30000, NULL, 5, NULL);
+
+    xTaskCreate(&Send_Data_Task, "Send_Data_Task", 30000, NULL, 5, NULL);
+
+    xTaskCreate(&Receive_Data_Task, "Receive_Data_Task", 30000, NULL, 5, NULL);
+
+    xTaskCreate(&Audio_Decompression_Task, "Audio_Decompression_Task", 30000, NULL, 5, NULL);
+
+    xTaskCreate(&MAX_Play_Task, "MAX_Play_Task", 30000, NULL, 5, NULL);
+}
+
+void loop()
+{
+    vTaskDelay(2); // xTask time
+}

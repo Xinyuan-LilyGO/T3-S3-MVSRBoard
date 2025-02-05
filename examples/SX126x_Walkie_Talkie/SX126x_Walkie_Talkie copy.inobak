@@ -1,0 +1,296 @@
+#include "RadioLib.h"
+#include "pin_config.h"
+#include "Arduino_DriveBus_Library.h"
+
+#define IIS_SAMPLE_RATE 44100 // 采样速率
+#define IIS_DATA_BIT 16       // 数据位数
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+
+std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus));
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
+                                    MAX98357A_DATA);
+
+std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
+
+char IIS_Read_Buf[100];
+char IIS_Write_Buf[100];
+
+// SX1262 has the following connections:
+// NSS pin:   10
+// DIO1 pin:  2
+// NRST pin:  3
+// BUSY pin:  9
+SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
+
+// or using RadioShield
+// https://github.com/jgromes/RadioShield
+// SX1262 radio = RadioShield.ModuleA;
+
+// or using CubeCell
+// SX1262 radio = new Module(RADIOLIB_BUILTIN_MODULE);
+
+uint8_t Receive_Package[200];
+char Receive_Buf[200];
+bool Receive_Flag = false;
+
+uint8_t Send_Package[200] = {'W', 'T', ':'};
+char Send_Buf[200];
+bool Send_Flag = false;
+
+// flag to indicate that a packet was sent or received
+volatile bool operationDone = false;
+
+void setFlag(void)
+{
+    // we sent or received a packet, set the flag
+    operationDone = true;
+}
+
+bool IIS_Mono_Processing(char *data, int32_t length, bool channel)
+{
+    if (length < 0 || data == NULL)
+    {
+        return false;
+    }
+
+    // 右声道复制到左声道
+    if (channel == 0)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i], &data[i + 2], 2);
+        }
+    }
+
+    // 左声道复制到右声道
+    if (channel == 1)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i + 2], &data[i], 2);
+        }
+    }
+
+    return true;
+}
+
+bool Lora_Mono_Audio_Compression(char *data1, char *data2, int32_t length, bool channel)
+{
+    if (length < 0 || data1 == NULL || data2 == NULL)
+    {
+        return false;
+    }
+
+    for (uint32_t i = 0, j = 0; i < length; i = i + 4, j = j + 2)
+    {
+        // 左声道数据压缩
+        if (channel == 0)
+        {
+            memmove(&data1[j], &data2[i], 2);
+        }
+
+        // 右声道数据压缩
+        if (channel == 1)
+        {
+            memmove(&data1[j], &data2[i + 2], 2);
+        }
+    }
+
+    return true;
+}
+
+bool Lora_Mono_Audio_Decompression(char *data1, char *data2, int32_t length)
+{
+    if (length < 0 || data1 == NULL || data2 == NULL)
+    {
+        return false;
+    }
+
+    for (uint32_t i = 0, j = 0; i < length; i = i + 4, j = j + 2)
+    {
+        // 左右声道数据合并解压
+        memmove(&data1[i], &data2[j], 2);
+        memmove(&data1[i + 2], &data2[j], 2);
+    }
+
+    return true;
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(0, INPUT_PULLUP);
+
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
+    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
+                         IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MSM261 initialization fail");
+        delay(2000);
+    }
+    Serial.println("MSM261 initialization successfully");
+
+    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
+                            IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MAX98357A initialization fail");
+        delay(2000);
+    }
+    Serial.println("MAX98357A initialization successfully");
+
+    // initialize SX1262 with default settings
+    Serial.println("[SX1262] Initializing ... ");
+
+    SPI.setFrequency(16000000);
+    SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
+    // int state = radio.begin();
+    int state = radio.beginFSK();
+    if (state == RADIOLIB_ERR_NONE)
+    {
+        Serial.println("success!");
+    }
+    else
+    {
+        Serial.print("failed, code ");
+        Serial.println(state);
+        while (true)
+            ;
+    }
+
+    // radio.setFrequency(914.9);
+    // radio.setFrequency(914.8);
+    radio.setFrequency(914.7);
+    radio.setBandwidth(500.0);
+    radio.setSpreadingFactor(12);
+    radio.setCodingRate(8);
+    radio.setSyncWord(0xAB);
+    radio.setOutputPower(22);
+    radio.setCurrentLimit(140);
+    radio.setPreambleLength(16);
+    radio.setCRC(false);
+
+    // set the function that will be called
+    // when new packet is received
+    radio.setDio1Action(setFlag);
+}
+
+void loop()
+{
+    if (digitalRead(0) == LOW)
+    {
+        if (Receive_Flag == false)
+        {
+            if (MSM261->IIS_Read_Data(IIS_Read_Buf, 100) == true)
+            {
+                // 输出右声道数据
+                // Serial.printf("Right: %d\n", (int16_t)(IIS_Read_Buf[2] | IIS_Read_Buf[3] << 8));
+
+                // 输出左声道数据
+                // Serial.printf("Left: %d\n", (int16_t)(IIS_Read_Buf[0] | IIS_Read_Buf[1] << 8));
+
+                // Serial.print((int16_t)(IIS_Read_Buf[2] | IIS_Read_Buf[3] << 8)); // Arduino
+                // Serial.print(",");
+                // Serial.println((int16_t)(IIS_Read_Buf[0] | IIS_Read_Buf[1] << 8));
+
+                // for (int i = 0; i < 25; i++)
+                // {
+                //     Serial.printf("1: %d\n", (int16_t)(IIS_Read_Buf[i + 2] | IIS_Read_Buf[i + 3] << 8));
+                // }
+
+                // 单声道处理
+                // IIS_Mono_Processing(IIS_Read_Buf, 100, 0);
+
+                // Lora传输音频压缩
+                Lora_Mono_Audio_Compression(Send_Buf, IIS_Read_Buf, 100, 1);
+
+                Send_Flag = true;
+            }
+            else
+            {
+                Serial.printf("Failed to read MSM261 data");
+            }
+            Send_Flag = true;
+        }
+    }
+
+    if (Send_Flag == true)
+    {
+        Send_Flag = false;
+        // send another one85
+        Serial.println("[SX1262] Sending another packet ... ");
+
+        memmove(&Send_Package[3], Send_Buf, 50);
+
+        radio.transmit(Send_Package, 53);
+        radio.startReceive();
+    }
+
+    // check if the previous operation finished
+    if (operationDone)
+    {
+        // reset flag
+        operationDone = false;
+
+        if (radio.readData(Receive_Package, 53) == RADIOLIB_ERR_NONE)
+        {
+            if ((Receive_Package[0] == 'W') &&
+                (Receive_Package[1] == 'T') &&
+                (Receive_Package[2] == ':'))
+            {
+                // packet was successfully received
+                Serial.println("[SX1262] Received packet!");
+
+                // print data of the packet
+                // for (int i = 0; i < 16; i++)
+                // {
+                //     Serial.printf("[SX1262] Data[%d]: %#X\n", i, Receive_Package[i]);
+                // }
+
+                // print RSSI (Received Signal Strength Indicator)
+                Serial.print("[SX1262] RSSI:\t\t");
+                Serial.print(radio.getRSSI());
+                Serial.println(" dBm");
+
+                // print SNR (Signal-to-Noise Ratio)
+                Serial.print("[SX1262] SNR:\t\t");
+                Serial.print(radio.getSNR());
+                Serial.println(" dB");
+
+                memmove(Receive_Buf, &Receive_Package[3], 50);
+                Receive_Flag = true;
+            }
+        }
+    }
+
+    if (Receive_Flag == true)
+    {
+        Receive_Flag = false;
+
+        // Lora传输音频解压
+        Lora_Mono_Audio_Decompression(IIS_Write_Buf, Receive_Buf, 100);
+
+        if (MAX98357A->IIS_Write_Data(IIS_Write_Buf, 100) == true)
+        {
+            // for (int i = 0; i < 25; i++)
+            // {
+            //     Serial.printf("2: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+            // }
+
+            // Serial.print((int16_t)(IIS_Write_Buf[2] | IIS_Write_Buf[3] << 8)); // Arduino
+            // Serial.print(",");
+            // Serial.println((int16_t)(IIS_Write_Buf[0] | IIS_Write_Buf[1] << 8));
+
+            Serial.printf("MAX98357A played successfully\n");
+        }
+    }
+}

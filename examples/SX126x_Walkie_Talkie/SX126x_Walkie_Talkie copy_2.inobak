@@ -1,0 +1,391 @@
+#include "RadioLib.h"
+#include "pin_config.h"
+#include "Arduino_DriveBus_Library.h"
+#include "codec2.h"
+
+#define IIS_SAMPLE_RATE 8000 // 采样速率
+#define IIS_DATA_BIT 16      // 数据位数
+
+#define IIS_BUF_NUMBER 104
+
+char IIS_Read_Buf[IIS_BUF_NUMBER];
+char IIS_Write_Buf[IIS_BUF_NUMBER];
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+
+std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus));
+
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
+                                    MAX98357A_DATA);
+
+std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
+
+// SX1262 has the following connections:
+// NSS pin:   10
+// DIO1 pin:  2
+// NRST pin:  3
+// BUSY pin:  9
+SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
+
+// or using RadioShield
+// https://github.com/jgromes/RadioShield
+// SX1262 radio = RadioShield.ModuleA;
+
+// or using CubeCell
+// SX1262 radio = new Module(RADIOLIB_BUILTIN_MODULE);
+
+uint8_t Receive_Package[200];
+char Receive_Buf[200];
+bool Receive_Flag = false;
+
+uint8_t Send_Package[200] = {'W', 'T', ':'};
+char Send_Buf[200];
+bool Send_Flag = false;
+
+// flag to indicate that a packet was sent or received
+volatile bool operationDone = false;
+
+void setFlag(void)
+{
+    // we sent or received a packet, set the flag
+    operationDone = true;
+}
+
+bool IIS_Mono_Processing(char *data, int32_t length, bool channel)
+{
+    if (length < 0 || data == NULL)
+    {
+        return false;
+    }
+
+    // 右声道复制到左声道
+    if (channel == 0)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i], &data[i + 2], 2);
+        }
+    }
+
+    // 左声道复制到右声道
+    if (channel == 1)
+    {
+        for (uint32_t i = 0; i < length; i += 4)
+        {
+            memmove(&data[i + 2], &data[i], 2);
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Decibel_Conversion(char *char_data, short *short_data,
+                            uint32_t convert_char_numbers, bool mode)
+{
+    if (convert_char_numbers < 0 || char_data == NULL || short_data == NULL)
+    {
+        return false;
+    }
+
+    uint32_t convert_numbers = convert_char_numbers / 2;
+
+    // char to short
+    if (mode == 0)
+    {
+        for (uint32_t i = 0; i < convert_numbers; i++)
+        {
+            *short_data = (int16_t)((int16_t)char_data[i * 2] | (int16_t)char_data[i * 2 + 1] << 8);
+            short_data++;
+        }
+    }
+    else // short to char
+    {
+        for (uint32_t i = 0; i < convert_numbers; i++)
+        {
+            char_data[i * 2] = *short_data;
+            char_data[i * 2 + 1] = *short_data >> 8;
+            short_data++;
+        }
+    }
+
+    return true;
+}
+
+bool IIS_Compression_Decompression_Conversion(short *original_data, short *compression_data,
+                                              uint32_t convert_original_numbers, bool channel_numbers, bool mode)
+{
+    if (convert_original_numbers < 0 || original_data == NULL || compression_data == NULL)
+    {
+        return false;
+    }
+
+    short first_byte = 0, last_byte = 0;
+
+    if (channel_numbers == 1) // 单声道
+    {
+        uint32_t convert_numbers = (convert_original_numbers / 4) - 1;
+
+        // compression
+        if (mode == 0)
+        {
+            first_byte = original_data[0];
+            last_byte = original_data[convert_original_numbers - 1]; // 数组从0开始
+
+            *compression_data = first_byte; // 首字节写入
+            compression_data++;
+
+            original_data += 2; // 跳过首字节
+            for (uint32_t i = 0; i < convert_numbers; i++)
+            {
+                *compression_data = original_data[i * 4];
+                compression_data++;
+            }
+
+            *compression_data = last_byte; // 末字节写入
+        }
+        else // decompression
+        {
+            first_byte = compression_data[0];
+            last_byte = compression_data[convert_numbers + 1]; // 这里加上1指的是首字节和末字节
+
+            for (uint8_t i = 0; i < 2; i++) // 首字节写入
+            {
+                *original_data = first_byte;
+                original_data++;
+            }
+
+            compression_data++; // 跳过首字节
+
+            for (uint32_t i = 0; i < convert_numbers; i++)
+            {
+                for (uint8_t j = 0; j < 4; j++)
+                {
+                    *original_data = compression_data[i];
+                    original_data++;
+                }
+            }
+
+            for (uint8_t i = 0; i < 2; i++) // 末字节写入
+            {
+                *original_data = last_byte;
+                original_data++;
+            }
+        }
+    }
+    else if (channel_numbers == 2)
+    {
+    }
+
+    return true;
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(0, INPUT_PULLUP);
+
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
+    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
+                         IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MSM261 initialization fail");
+        delay(2000);
+    }
+    Serial.println("MSM261 initialization successfully");
+
+    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
+                            IIS_SAMPLE_RATE, IIS_DATA_BIT) == false)
+    {
+        Serial.println("MAX98357A initialization fail");
+        delay(2000);
+    }
+    Serial.println("MAX98357A initialization successfully");
+
+    // initialize SX1262 with default settings
+    Serial.println("[SX1262] Initializing ... ");
+
+    SPI.setFrequency(16000000);
+    SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
+    // int state = radio.begin();
+    int state = radio.beginFSK();
+    if (state == RADIOLIB_ERR_NONE)
+    {
+        Serial.println("success!");
+    }
+    else
+    {
+        Serial.print("failed, code ");
+        Serial.println(state);
+        while (true)
+            ;
+    }
+
+    // radio.setFrequency(914.9);
+    // radio.setFrequency(914.8);
+    radio.setFrequency(914.7);
+    radio.setBandwidth(500.0);
+    radio.setSpreadingFactor(12);
+    radio.setCodingRate(8);
+    radio.setSyncWord(0xAB);
+    radio.setOutputPower(22);
+    radio.setCurrentLimit(140);
+    radio.setPreambleLength(16);
+    radio.setCRC(false);
+
+    // set the function that will be called
+    // when new packet is received
+    radio.setDio1Action(setFlag);
+
+    // Init codec2
+    // codec2_state = codec2_create(CODEC2_MODE_1600);
+    // codec2_set_lpc_post_filter(codec2_state, true, 0, 0.8, 0.2);
+
+    // xTaskCreate(&codec2_watcher, "codec2_watcher_task", 30000, NULL, 5, NULL);
+
+    // xTaskCreate(&MAX_Play_Task, "MAX_Play_Task", 30000, NULL, 5, NULL);
+}
+
+void loop()
+{
+    if (digitalRead(0) == LOW)
+    {
+        if (Receive_Flag == false)
+        {
+            if (MSM261->IIS_Read_Data(IIS_Read_Buf, IIS_BUF_NUMBER) == true)
+            {
+                // 单声道处理
+                IIS_Mono_Processing(IIS_Read_Buf, IIS_BUF_NUMBER, 0);
+
+                // for (int i = 0; i < 100; i++)
+                // {
+                //     Serial.printf("debug[%d]: %d\n", i, IIS_Read_Buf[i]);
+                // }
+
+                short decibel_conversion_buf[IIS_BUF_NUMBER] = {0}; // 分贝转换之后只有50个数据
+                short compression_buf[IIS_BUF_NUMBER] = {0};
+                char transmission_char_decibel_conversion_buf[IIS_BUF_NUMBER] = {0};
+
+                IIS_Decibel_Conversion(IIS_Read_Buf, decibel_conversion_buf, IIS_BUF_NUMBER, 0);
+
+                // for (int i = 0; i < 60; i++)
+                // {
+                //     Serial.printf("debug1[%d]: %d\n", i, decibel_conversion_buf[i]);
+                // }
+                // Serial.println();
+
+                IIS_Compression_Decompression_Conversion(decibel_conversion_buf, compression_buf, IIS_BUF_NUMBER / 2, 1, 0);
+
+                // for (int i = 0; i < 60; i++)
+                // {
+                //     Serial.printf("debug2[%d]: %d\n", i, decompression_buf[i]);
+                // }
+                // Serial.println();
+
+                IIS_Decibel_Conversion(transmission_char_decibel_conversion_buf, compression_buf, IIS_BUF_NUMBER / 4, 1);
+
+                // delay(1);
+
+                memmove(&Send_Package[3], transmission_char_decibel_conversion_buf, IIS_BUF_NUMBER / 4);
+
+                Send_Flag = true;
+            }
+            else
+            {
+                Serial.printf("Failed to read MSM261 data");
+            }
+            Send_Flag = true;
+        }
+    }
+
+    if (Send_Flag == true)
+    {
+        Send_Flag = false;
+        // send another one85
+        Serial.println("[SX1262] Sending another packet ... ");
+
+        radio.transmit(Send_Package, (IIS_BUF_NUMBER / 4) + 3);
+        radio.startReceive();
+    }
+
+    // check if the previous operation finished
+    if (operationDone)
+    {
+        // reset flag
+        operationDone = false;
+
+        if (radio.readData(Receive_Package, (IIS_BUF_NUMBER / 4) + 3) == RADIOLIB_ERR_NONE)
+        {
+            if ((Receive_Package[0] == 'W') &&
+                (Receive_Package[1] == 'T') &&
+                (Receive_Package[2] == ':'))
+            {
+                // packet was successfully received
+                Serial.println("[SX1262] Received packet!");
+
+                // print data of the packet
+                // for (int i = 0; i < 16; i++)
+                // {
+                //     Serial.printf("[SX1262] Data[%d]: %#X\n", i, Receive_Package[i]);
+                // }
+
+                // print RSSI (Received Signal Strength Indicator)
+                Serial.print("[SX1262] RSSI:\t\t");
+                Serial.print(radio.getRSSI());
+                Serial.println(" dBm");
+
+                // print SNR (Signal-to-Noise Ratio)
+                Serial.print("[SX1262] SNR:\t\t");
+                Serial.print(radio.getSNR());
+                Serial.println(" dB");
+
+                short original_buf[IIS_BUF_NUMBER] = {0};
+                short transmission_short_decibel_conversion_buf[IIS_BUF_NUMBER] = {0};
+
+                memmove(Receive_Buf, &Receive_Package[3], IIS_BUF_NUMBER / 4);
+
+                IIS_Decibel_Conversion(Receive_Buf, transmission_short_decibel_conversion_buf, IIS_BUF_NUMBER / 4, 0);
+
+                IIS_Compression_Decompression_Conversion(original_buf, transmission_short_decibel_conversion_buf, IIS_BUF_NUMBER / 2, 1, 1);
+
+                // for (int i = 0; i < 60; i++)
+                // {
+                //     Serial.printf("debug3[%d]: %d\n", i, original_buf[i]);
+                // }
+                // Serial.println();
+
+                IIS_Decibel_Conversion(IIS_Write_Buf, original_buf, IIS_BUF_NUMBER, 1);
+
+                Receive_Flag = true;
+            }
+        }
+    }
+
+    if (Receive_Flag == true)
+    {
+        Receive_Flag = false;
+
+        if (MAX98357A->IIS_Write_Data(IIS_Write_Buf, IIS_BUF_NUMBER) == true)
+        {
+            // for (int i = 0; i < 25; i++)
+            // {
+            //     Serial.printf("2: %d\n", (int16_t)(IIS_Write_Buf[i + 2] | IIS_Write_Buf[i + 3] << 8));
+            // }
+
+            // Serial.print((int16_t)(IIS_Write_Buf[2] | IIS_Write_Buf[3] << 8)); // Arduino
+            // Serial.print(",");
+            // Serial.println((int16_t)(IIS_Write_Buf[0] | IIS_Write_Buf[1] << 8));
+        }
+        else
+        {
+            Serial.printf("Failed to read MSM261 data");
+        }
+    }
+}
