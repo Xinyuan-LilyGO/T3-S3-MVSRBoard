@@ -1,9 +1,9 @@
 /*
  * @Description: 
-            T-Display-S3-Pro-MVSRBoard PCF85063 plan triggers interrupt
+            PCF85063 plan triggers interrupt
  * @Author: LILYGO_L
  * @Date: 2024-03-27 10:02:26
- * @LastEditTime: 2024-09-26 14:50:47
+ * @LastEditTime: 2025-02-05 17:04:56
  * @License: GPL 3.0
  */
 

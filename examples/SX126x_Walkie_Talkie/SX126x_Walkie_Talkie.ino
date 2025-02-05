@@ -1,3 +1,10 @@
+/*
+ * @Description: 对讲机测试
+ * @Author: LILYGO_L
+ * @Date: 2024-11-07 10:04:25
+ * @LastEditTime: 2025-02-05 17:06:51
+ * @License: GPL 3.0
+ */
 #include "RadioLib.h"
 #include "pin_config.h"
 #include "Arduino_DriveBus_Library.h"

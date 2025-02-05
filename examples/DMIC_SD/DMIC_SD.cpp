@@ -1,10 +1,10 @@
 /*
  * @Description:
-            T-Display-S3-Pro-MVSRBoard This is an example of recording audio using a digital microphone with 16-bit,
+            This is an example of recording audio using a digital microphone with 16-bit,
         44.1kHz mono sampling rate.
  * @Author: LILYGO_L
  * @Date: 2023-08-17 15:55:47
- * @LastEditTime: 2024-10-14 01:24:06
+ * @LastEditTime: 2025-02-05 17:03:54
  * @License: GPL 3.0
  */
 

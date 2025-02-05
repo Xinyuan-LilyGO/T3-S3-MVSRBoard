@@ -1,8 +1,8 @@
 /*
- * @Description: None
+ * @Description: 出厂测试
  * @Author: LILYGO_L
  * @Date: 2024-10-28 18:03:22
- * @LastEditTime: 2025-01-21 14:26:58
+ * @LastEditTime: 2025-02-05 17:04:33
  * @License: GPL 3.0
  */
 

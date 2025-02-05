@@ -1,10 +1,8 @@
 /*
  * @Description:SD card test procedure.
- * @version: V1.0.0
  * @Author: LILYGO_L
  * @Date: 2023-08-18 15:33:23
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2024-09-28 17:59:41
+ * @LastEditTime: 2025-02-05 17:05:19
  * @License: GPL 3.0
  */
 #include <Arduino.h>

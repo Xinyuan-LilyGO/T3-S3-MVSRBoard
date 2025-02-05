@@ -1,14 +1,10 @@
 /*
-   RadioLib SX126x Ping-Pong Example
-
-   For default module settings, see the wiki page
-   https://github.com/jgromes/RadioLib/wiki/Default-configuration#sx126x---lora-modem
-
-   For full API reference, see the GitHub Pages
-   https://jgromes.github.io/RadioLib/
-*/
-
-// include the library
+ * @Description: SX127x_PingPong_2 test
+ * @Author: LILYGO_L
+ * @Date: 2024-12-02 18:06:13
+ * @LastEditTime: 2025-02-05 17:07:56
+ * @License: GPL 3.0
+ */
 #include "RadioLib.h"
 #include "pin_config.h"
 
@@ -27,12 +23,6 @@ SX1276 radio = new Module(LORA_CS, LORA_DIO0, LORA_RST, LORA_DIO1, SPI);
 #ifdef T3_S3_SX1278
 SX1278 radio = new Module(LORA_CS, LORA_DIO0, LORA_RST, LORA_DIO1, SPI);
 #endif
-// or using RadioShield
-// https://github.com/jgromes/RadioShield
-// SX1280 radio = RadioShield.ModuleA;
-
-// or using CubeCell
-// SX1280 radio = new Module(RADIOLIB_BUILTIN_MODULE);
 
 uint8_t Receive_Package[16];
 uint32_t Receive_Data = 0;
@@ -58,10 +48,9 @@ void setup()
 {
     Serial.begin(115200);
 
+    // initialize SX1276 with default settings
+    Serial.println("[SX1276] Initializing ... ");
     SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
-
-    // initialize SX1280 with default settings
-    Serial.println("[SX1280] Initializing ... ");
     int state = radio.begin();
     if (state == RADIOLIB_ERR_NONE)
     {
@@ -76,10 +65,10 @@ void setup()
     }
 
     // radio.setFrequency(914.9);
-    radio.setFrequency(868.0);
-    radio.setBandwidth(125.0);
+    radio.setFrequency(868.1);
+    radio.setBandwidth(500.0);
     // radio.setBitRate(300.0);
-    radio.setSpreadingFactor(12);
+    radio.setSpreadingFactor(9);
     radio.setCodingRate(6);
     radio.setSyncWord(0xAB);
     radio.setCurrentLimit(240);
@@ -100,6 +89,18 @@ void loop()
         Lora_Mode = !Lora_Mode;
 
         radio.begin();
+        // radio.setFrequency(914.9);
+        radio.setFrequency(868.1);
+        radio.setBandwidth(500.0);
+        // radio.setBitRate(300.0);
+        radio.setSpreadingFactor(9);
+        radio.setCodingRate(6);
+        radio.setSyncWord(0xAB);
+        radio.setCurrentLimit(240);
+        radio.setOutputPower(17);
+        radio.setPreambleLength(16);
+        radio.setCRC(false);
+
         if (Lora_Mode == 1)
         {
             radio.startReceive();
@@ -111,7 +112,7 @@ void loop()
         if (millis() > CycleTime)
         {
             // send another one
-            Serial.println("[SX1280] Sending another packet ... ");
+            Serial.println("[SX1276] Sending another packet ... ");
 
             Send_Package[12] = (uint8_t)(Send_Data >> 24);
             Send_Package[13] = (uint8_t)(Send_Data >> 16);
@@ -129,7 +130,7 @@ void loop()
         {
             Lora_Receive_Flag = false;
 
-            if (radio.receive(Receive_Package, 16) == RADIOLIB_ERR_NONE)
+            if (radio.readData(Receive_Package, 16) == RADIOLIB_ERR_NONE)
             {
                 if ((Receive_Package[0] == 'M') &&
                     (Receive_Package[1] == 'A') &&
@@ -155,40 +156,40 @@ void loop()
                             (uint32_t)Receive_Package[15];
 
                         // packet was successfully received
-                        Serial.println("[SX1280] Received packet!");
+                        Serial.println("[SX1276] Received packet!");
 
                         // print data of the packet
                         for (int i = 0; i < 16; i++)
                         {
-                            Serial.printf("[SX1280] Data[%d]: %#X\n", i, Receive_Package[i]);
+                            Serial.printf("[SX1276] Data[%d]: %#X\n", i, Receive_Package[i]);
                         }
 
-                        uint32_t temp_mac[2];
-                        temp_mac[0] =
-                            ((uint32_t)Receive_Package[8] << 24) |
-                            ((uint32_t)Receive_Package[9] << 16) |
-                            ((uint32_t)Receive_Package[10] << 8) |
-                            (uint32_t)Receive_Package[11];
-                        temp_mac[1] =
-                            ((uint32_t)Receive_Package[4] << 24) |
-                            ((uint32_t)Receive_Package[5] << 16) |
-                            ((uint32_t)Receive_Package[6] << 8) |
-                            (uint32_t)Receive_Package[7];
+                        // uint32_t temp_mac[2];
+                        // temp_mac[0] =
+                        //     ((uint32_t)Receive_Package[8] << 24) |
+                        //     ((uint32_t)Receive_Package[9] << 16) |
+                        //     ((uint32_t)Receive_Package[10] << 8) |
+                        //     (uint32_t)Receive_Package[11];
+                        // temp_mac[1] =
+                        //     ((uint32_t)Receive_Package[4] << 24) |
+                        //     ((uint32_t)Receive_Package[5] << 16) |
+                        //     ((uint32_t)Receive_Package[6] << 8) |
+                        //     (uint32_t)Receive_Package[7];
 
-                        Serial.printf("Chip Mac ID[0]: %u\n", temp_mac[0]);
-                        Serial.printf("Chip Mac ID[1]: %u\n", temp_mac[1]);
+                        // Serial.printf("Chip Mac ID[0]: %u\n", temp_mac[0]);
+                        // Serial.printf("Chip Mac ID[1]: %u\n", temp_mac[1]);
 
                         // print data of the packet
-                        Serial.print("[SX1280] Data:\t\t");
+                        Serial.print("[SX1276] Data:\t\t");
                         Serial.println(Receive_Data);
 
                         // print RSSI (Received Signal Strength Indicator)
-                        Serial.print("[SX1280] RSSI:\t\t");
+                        Serial.print("[SX1276] RSSI:\t\t");
                         Serial.print(radio.getRSSI());
                         Serial.println(" dBm");
 
                         // print SNR (Signal-to-Noise Ratio)
-                        Serial.print("[SX1280] SNR:\t\t");
+                        Serial.print("[SX1276] SNR:\t\t");
                         Serial.print(radio.getSNR());
                         Serial.println(" dB");
 

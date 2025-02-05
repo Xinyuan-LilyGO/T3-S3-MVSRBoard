@@ -1,10 +1,8 @@
 /*
  * @Description: Sleep
- * @version: V1.0.0
  * @Author: LILYGO_L
  * @Date: 2024-03-11 10:05:32
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2024-11-04 11:05:19
+ * @LastEditTime: 2025-02-05 17:05:28
  * @License: GPL 3.0
  */
 #include <SPI.h>

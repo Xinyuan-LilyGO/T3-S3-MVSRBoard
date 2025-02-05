@@ -1,9 +1,9 @@
 /*
  * @Description: 
-            T-Display-S3-Pro-MVSRBoard PCF85063 example program, printing RTC time data to serial port
+            PCF85063 example program, printing RTC time data to serial port
  * @Author: LILYGO_L
  * @Date: 2024-03-27 10:02:26
- * @LastEditTime: 2024-09-26 11:43:46
+ * @LastEditTime: 2025-02-05 17:04:50
  * @License: GPL 3.0
  */
 

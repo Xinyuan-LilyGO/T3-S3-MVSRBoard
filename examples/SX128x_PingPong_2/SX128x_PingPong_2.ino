@@ -1,14 +1,10 @@
 /*
-   RadioLib SX126x Ping-Pong Example
-
-   For default module settings, see the wiki page
-   https://github.com/jgromes/RadioLib/wiki/Default-configuration#sx126x---lora-modem
-
-   For full API reference, see the GitHub Pages
-   https://jgromes.github.io/RadioLib/
-*/
-
-// include the library
+ * @Description: SX128x_PingPong_2 test
+ * @Author: LILYGO_L
+ * @Date: 2024-12-02 10:43:22
+ * @LastEditTime: 2025-02-05 17:08:24
+ * @License: GPL 3.0
+ */
 #include "RadioLib.h"
 #include "pin_config.h"
 

@@ -1,15 +1,8 @@
 /*
- * @Description(CN):
- *      播放Wifi音乐
- *
- * @Description(EN):
- *      Play WiFi music
- *
- * @version: V1.0.0
+ * @Description: Play WiFi music
  * @Author: LILYGO_L
  * @Date: 2023-06-12 14:27:51
- * @LastEditors: Please set LastEditors
- * @LastEditTime: 2024-10-09 22:07:22
+ * @LastEditTime: 2025-02-05 17:11:17
  * @License: GPL 3.0
  */
 #include "Arduino.h"
@@ -20,10 +13,8 @@
 #include "FS.h"
 #include "pin_config.h"
 
-// String ssid = "LilyGo-AABB";
-// String password = "xinyuandianzi";
-String ssid = "000000";
-String password = "88888888";
+String ssid = "LilyGo-AABB";
+String password = "xinyuandianzi";
 
 Audio audio;
 
