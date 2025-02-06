@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-02-06 10:06:12
+ * @LastEditTime: 2025-02-06 12:11:19
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -110,7 +110,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 | [Original_Test(SX1280PA)](./firmware/(切换为SD卡播放音乐)[T3-S3-MVSRBoard][Original_Test][SX1280PA]_firmware_202412181826.bin) | Original factory program |  |
 
 ### PlatformIO
-1. Install[VisualStudioCode](https://code.visualstudio.com/Download),Choose installation based on your system type.
+1. Install [VisualStudioCode](https://code.visualstudio.com/Download) ,Choose installation based on your system type.
 
 2. Open the "Extension" section of the Visual Studio Code software sidebar(Alternatively, use "<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>" to open the extension),Search for the "PlatformIO IDE" extension and download it.
 
@@ -121,7 +121,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 5. Open the "platformio.ini" file in the project folder (PlatformIO will automatically open the "platformio.ini" file corresponding to the added folder). Under the "[platformio]" section, uncomment and select the example program you want to burn (it should start with "default_envs = xxx") Then click "<kbd>[√](image/4.png)</kbd>" in the bottom left corner to compile,If the compilation is correct, connect the microcontroller to the computer and click "<kbd>[→](image/5.png)</kbd>" in the bottom left corner to download the program.
 
 ### Arduino
-1. Install[Arduino](https://www.arduino.cc/en/software),Choose installation based on your system type.
+1. Install [Arduino](https://www.arduino.cc/en/software) ,Choose installation based on your system type.
 
 2. Open the "example" directory within the project folder, select the example project folder, and open the file ending with ".ino" to open the Arduino IDE project workspace.
 
