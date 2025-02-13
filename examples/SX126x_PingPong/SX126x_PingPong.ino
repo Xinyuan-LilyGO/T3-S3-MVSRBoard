@@ -16,6 +16,8 @@
 // of the nodes to initiate the pings
 #define INITIATING_NODE
 
+uint8_t Send_Package[9] = {9, 8, 7, 6, 5, 4, 3, 2, 1};
+
 // SX1262 has the following connections:
 // NSS pin:   10
 // DIO1 pin:  2
@@ -59,8 +61,8 @@ void setup()
     // initialize SX1262 with default settings
     Serial.println("[SX1262] Initializing ... ");
     SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
-    // int state = radio.begin();
-        int state = radio.beginFSK();
+    int state = radio.begin();
+    // int state = radio.beginFSK();
     if (state == RADIOLIB_ERR_NONE)
     {
         Serial.println("success!");
@@ -73,15 +75,15 @@ void setup()
             ;
     }
 
-    radio.setFrequency(868.6);
-    radio.setBandwidth(500.0);
+    radio.setFrequency(868.1);
+    radio.setBandwidth(125.0);
     radio.setSpreadingFactor(9);
-    radio.setCodingRate(6);
-    radio.setSyncWord(0xAB);
+    radio.setCodingRate(7);
+    radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
     radio.setOutputPower(22);
     radio.setCurrentLimit(140);
-    radio.setPreambleLength(16);
-    radio.setCRC(false);
+    radio.setPreambleLength(8);
+    radio.setCRC(true);
 
     // set the function that will be called
     // when new packet is received
@@ -90,7 +92,7 @@ void setup()
 #if defined(INITIATING_NODE)
     // send the first packet on this node
     Serial.print("[SX1262] Sending first packet ... ");
-    transmissionState = radio.startTransmit("Hello World!");
+    transmissionState = radio.startTransmit(Send_Package, 9);
     transmitFlag = true;
 #else
     // start listening for LoRa packets on this node
@@ -141,8 +143,8 @@ void loop()
         {
             // the previous operation was reception
             // print data and send another packet
-            String str;
-            int state = radio.readData(str);
+            uint8_t receive_data[255] = {0};
+            int state = radio.readData(receive_data, 9);
 
             if (state == RADIOLIB_ERR_NONE)
             {
@@ -150,8 +152,10 @@ void loop()
                 Serial.println("[SX1262] Received packet!");
 
                 // print data of the packet
-                Serial.print("[SX1262] Data:\t\t");
-                Serial.println(str);
+                for (uint8_t i = 0; i < 9; i++)
+                {
+                    printf("[SX1262] data[%d]: %d\n", i, receive_data[i]);
+                }
 
                 // print RSSI (Received Signal Strength Indicator)
                 Serial.print("[SX1262] RSSI:\t\t");
@@ -169,7 +173,7 @@ void loop()
 
             // send another one
             Serial.println("[SX1262] Sending another packet ... ");
-            transmissionState = radio.startTransmit("Hello World!");
+            transmissionState = radio.startTransmit(Send_Package, 9);
             transmitFlag = true;
         }
     }

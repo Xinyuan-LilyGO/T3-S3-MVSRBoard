@@ -2,7 +2,7 @@
  * @Description: SX126x_PingPong_2 test
  * @Author: LILYGO_L
  * @Date: 2024-11-07 10:04:25
- * @LastEditTime: 2025-02-05 17:06:19
+ * @LastEditTime: 2025-02-12 09:20:17
  * @License: GPL 3.0
  */
 #include "RadioLib.h"
@@ -73,8 +73,8 @@ void setup()
     }
 
     // radio.setFrequency(914.9);
-    radio.setFrequency(914.8);
-    radio.setBandwidth(500.0);
+    radio.setFrequency(868.1);
+    radio.setBandwidth(125.0);
     radio.setSpreadingFactor(12);
     radio.setCodingRate(8);
     radio.setSyncWord(0xAB);
