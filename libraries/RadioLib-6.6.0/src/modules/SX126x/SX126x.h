@@ -1187,6 +1187,7 @@ class SX126x: public PhysicalLayer {
 #endif
     Module* mod;
 
+    public:
     uint8_t spreadingFactor = 0, codingRate = 0, ldrOptimize = 0, crcTypeLoRa = 0, headerType = 0;
     uint16_t preambleLengthLoRa = 0;
     float bandwidthKhz = 0;
@@ -1204,7 +1205,7 @@ class SX126x: public PhysicalLayer {
 
     size_t implicitLen = 0;
     uint8_t invertIQEnabled = RADIOLIB_SX126X_LORA_IQ_STANDARD;
-
+    private:
     int16_t config(uint8_t modem);
     bool findChip(const char* verStr);
     int16_t startReceiveCommon(uint32_t timeout = RADIOLIB_SX126X_RX_TIMEOUT_INF, uint16_t irqFlags = RADIOLIB_SX126X_IRQ_RX_DEFAULT, uint16_t irqMask = RADIOLIB_SX126X_IRQ_RX_DONE);

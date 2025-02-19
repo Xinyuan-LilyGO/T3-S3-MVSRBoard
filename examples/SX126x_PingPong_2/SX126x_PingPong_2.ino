@@ -2,7 +2,7 @@
  * @Description: SX126x_PingPong_2 test
  * @Author: LILYGO_L
  * @Date: 2024-11-07 10:04:25
- * @LastEditTime: 2025-02-12 09:20:17
+ * @LastEditTime: 2025-02-19 09:11:50
  * @License: GPL 3.0
  */
 #include "RadioLib.h"

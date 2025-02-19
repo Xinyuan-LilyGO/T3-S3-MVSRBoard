@@ -61,7 +61,7 @@ void setup()
 
     // the following settings can also
     // be modified at run-time
-    state = radio.setFrequency(868.6);
+    state = radio.setFrequency(433.5);
     state = radio.setBitRate(100.0);
     state = radio.setFrequencyDeviation(10.0);
     state = radio.setRxBandwidth(250.0);
