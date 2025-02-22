@@ -14,7 +14,7 @@
 
 // uncomment the following only on one
 // of the nodes to initiate the pings
-#define INITIATING_NODE
+// #define INITIATING_NODE
 
 uint8_t Send_Package[9] = {9, 8, 7, 6, 5, 4, 3, 2, 1};
 
@@ -61,8 +61,7 @@ void setup()
     // initialize SX1262 with default settings
     Serial.println("[SX1262] Initializing ... ");
     SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
-    // int state = radio.begin();
-    int state = radio.beginFSK();
+    int state = radio.begin();
     if (state == RADIOLIB_ERR_NONE)
     {
         Serial.println("success!");
@@ -75,27 +74,15 @@ void setup()
             ;
     }
 
-    // radio.setFrequency(868.1);
-    // radio.setBandwidth(125.0);
-    // radio.setSpreadingFactor(9);
-    // radio.setCodingRate(7);
-    // radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
-    // radio.setOutputPower(22);
-    // radio.setCurrentLimit(140);
-    // radio.setPreambleLength(8);
-    // radio.setCRC(true);
-
     radio.setFrequency(868.1);
-    // radio.setFrequencyDeviation(5.0);
-    radio.setBitRate(300.0);
-    radio.setRxBandwidth(467.0);
+    radio.setBandwidth(125.0);
     radio.setSpreadingFactor(9);
+    radio.setCodingRate(7);
+    radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
     radio.setOutputPower(22);
     radio.setCurrentLimit(140);
-    radio.setPreambleLength(16);
-    radio.setCRC(0, 0x1D0F, 0x1021, true);
-    // uint8_t syncWord[] = {0x12, 0xAD};
-    // state = radio.setSyncWord(syncWord, 2);
+    radio.setPreambleLength(8);
+    radio.setCRC(true);
 
     // set the function that will be called
     // when new packet is received
@@ -104,7 +91,7 @@ void setup()
 #if defined(INITIATING_NODE)
     // send the first packet on this node
     Serial.print("[SX1262] Sending first packet ... ");
-    transmissionState = radio.transmit(Send_Package, 9);
+    transmissionState = radio.startTransmit(Send_Package, 9);
     transmitFlag = true;
 #else
     // start listening for LoRa packets on this node
@@ -122,31 +109,6 @@ void setup()
             ;
     }
 #endif
-
-    Serial.printf("spreadingFactor: %d\n", radio.spreadingFactor);
-    Serial.printf("codingRate: %d\n", radio.codingRate);
-    Serial.printf("ldrOptimize: %d\n", radio.ldrOptimize);
-    Serial.printf("crcTypeLoRa: %d\n", radio.crcTypeLoRa);
-    Serial.printf("headerType: %d\n", radio.headerType);
-    Serial.printf("preambleLengthLoRa: %d\n", radio.preambleLengthLoRa);
-    Serial.printf("bandwidthKhz: %.2f\n", radio.bandwidthKhz);
-    Serial.printf("ldroAuto: %s\n", radio.ldroAuto ? "true" : "false");
-    Serial.printf("bitRate: %lu\n", radio.bitRate);
-    Serial.printf("frequencyDev: %lu\n", radio.frequencyDev);
-    Serial.printf("rxBandwidth: %d\n", radio.rxBandwidth);
-    Serial.printf("pulseShape: %d\n", radio.pulseShape);
-    Serial.printf("crcTypeFSK: %d\n", radio.crcTypeFSK);
-    Serial.printf("syncWordLength: %d\n", radio.syncWordLength);
-    Serial.printf("addrComp: %d\n", radio.addrComp);
-    Serial.printf("whitening: %d\n", radio.whitening);
-    Serial.printf("packetType: %d\n", radio.packetType);
-    Serial.printf("preambleLengthFSK: %d\n", radio.preambleLengthFSK);
-    Serial.printf("rxBandwidthKhz: %.2f\n", radio.rxBandwidthKhz);
-    Serial.printf("dataRateMeasured: %.2f\n", radio.dataRateMeasured);
-    Serial.printf("tcxoDelay: %lu\n", radio.tcxoDelay);
-    Serial.printf("pwr: %d\n", radio.pwr);
-    Serial.printf("implicitLen: %zu\n", radio.implicitLen);
-    Serial.printf("invertIQEnabled: %d\n", radio.invertIQEnabled);
 }
 
 void loop()
@@ -209,9 +171,9 @@ void loop()
             delay(1000);
 
             // send another one
-            // Serial.println("[SX1262] Sending another packet ... ");
-            // transmissionState = radio.startTransmit(Send_Package, 9);
-            // transmitFlag = true;
+            Serial.println("[SX1262] Sending another packet ... ");
+            transmissionState = radio.startTransmit(Send_Package, 9);
+            transmitFlag = true;
         }
     }
 }

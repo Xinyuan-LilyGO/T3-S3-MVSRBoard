@@ -34,9 +34,21 @@ SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
 // or using CubeCell
 // SX1262 radio = new Module(RADIOLIB_BUILTIN_MODULE);
 
+uint8_t Send_Package[9] = {9, 8, 7, 6, 5, 4, 3, 2, 1};
+
+volatile bool operationDone = false;
+
+void setFlag(void)
+{
+    // we sent or received  packet, set the flag
+    operationDone = true;
+}
+
 void setup()
 {
     Serial.begin(115200);
+
+    pinMode(0, INPUT_PULLUP);
 
     // initialize SX1262 FSK modem with default settings
     Serial.print(F("[SX1262] Initializing ... "));
@@ -54,19 +66,13 @@ void setup()
             ;
     }
 
-    // if needed, you can switch between LoRa and FSK modes
-    //
-    // radio.begin()       start LoRa mode (and disable FSK)
-    // radio.beginFSK()    start FSK mode (and disable LoRa)
-
-    // the following settings can also
-    // be modified at run-time
-    state = radio.setFrequency(433.5);
-    state = radio.setBitRate(100.0);
+    state = radio.setFrequency(868.1);
+    state = radio.setPreambleLength(32);
+    state = radio.setBitRate(200.0);
     state = radio.setFrequencyDeviation(10.0);
-    state = radio.setRxBandwidth(250.0);
-    state = radio.setOutputPower(10.0);
-    state = radio.setCurrentLimit(100.0);
+    state = radio.setRxBandwidth(467.0);
+    state = radio.setOutputPower(22.0);
+    state = radio.setCurrentLimit(140.0);
     state = radio.setDataShaping(RADIOLIB_SHAPING_1_0);
     uint8_t syncWord[] = {0x01, 0x23, 0x45, 0x67,
                           0x89, 0xAB, 0xCD, 0xEF};
@@ -79,18 +85,21 @@ void setup()
             ;
     }
 
-    // FSK modem on SX126x can handle the sync word setting in bits, not just
-    // whole bytes. The value used is left-justified.
-    // This makes same result as radio.setSyncWord(syncWord, 8):
-    state = radio.setSyncBits(syncWord, 64);
-    // This will use 0x012 as sync word (12 bits only):
-    state = radio.setSyncBits(syncWord, 12);
+    // // FSK modem on SX126x can handle the sync word setting in bits, not just
+    // // whole bytes. The value used is left-justified.
+    // // This makes same result as radio.setSyncWord(syncWord, 8):
+    // state = radio.setSyncBits(syncWord, 64);
+    // // This will use 0x012 as sync word (12 bits only):
+    // state = radio.setSyncBits(syncWord, 12);
 
-    // FSK modem allows advanced CRC configuration
-    // Default is CCIT CRC16 (2 bytes, initial 0x1D0F, polynomial 0x1021, inverted)
-    // Set CRC to IBM CRC (2 bytes, initial 0xFFFF, polynomial 0x8005, non-inverted)
-    state = radio.setCRC(2, 0xFFFF, 0x8005, false);
-    // set CRC length to 0 to disable CRC
+    // // FSK modem allows advanced CRC configuration
+    // // Default is CCIT CRC16 (2 bytes, initial 0x1D0F, polynomial 0x1021, inverted)
+    // // Set CRC to IBM CRC (2 bytes, initial 0xFFFF, polynomial 0x8005, non-inverted)
+    state = radio.setCRC(2, 0x1D0F, 0x1021, true);
+    // // set CRC length to 0 to disable CRC
+
+    radio.setPacketReceivedAction(setFlag);
+    radio.startReceive();
 
 #warning "This sketch is just an API guide! Read the note at line 6."
 }
@@ -100,81 +109,66 @@ void loop()
     // FSK modem can use the same transmit/receive methods
     // as the LoRa modem, even their interrupt-driven versions
 
-    // transmit FSK packet
-    int state = radio.transmit("Hello World!");
-    /*
-      byte byteArr[] = {0x01, 0x23, 0x45, 0x67,
-                        0x89, 0xAB, 0xCD, 0xEF};
-      int state = radio.transmit(byteArr, 8);
-    */
-    if (state == RADIOLIB_ERR_NONE)
+    if (digitalRead(0) == LOW)
     {
-        Serial.println(F("[SX1262] Packet transmitted successfully!"));
-    }
-    else if (state == RADIOLIB_ERR_PACKET_TOO_LONG)
-    {
-        Serial.println(F("[SX1262] Packet too long!"));
-    }
-    else if (state == RADIOLIB_ERR_TX_TIMEOUT)
-    {
-        Serial.println(F("[SX1262] Timed out while transmitting!"));
-    }
-    else
-    {
-        Serial.println(F("[SX1262] Failed to transmit packet, code "));
-        Serial.println(state);
+        // transmit FSK packet
+        int state = radio.transmit(Send_Package, 9);
+        /*
+          byte byteArr[] = {0x01, 0x23, 0x45, 0x67,
+                            0x89, 0xAB, 0xCD, 0xEF};
+          int state = radio.transmit(byteArr, 8);
+        */
+        if (state == RADIOLIB_ERR_NONE)
+        {
+            Serial.println(F("[SX1262] Packet transmitted successfully!"));
+        }
+        else if (state == RADIOLIB_ERR_PACKET_TOO_LONG)
+        {
+            Serial.println(F("[SX1262] Packet too long!"));
+        }
+        else if (state == RADIOLIB_ERR_TX_TIMEOUT)
+        {
+            Serial.println(F("[SX1262] Timed out while transmitting!"));
+        }
+        else
+        {
+            Serial.println(F("[SX1262] Failed to transmit packet, code "));
+            Serial.println(state);
+        }
+
+        radio.startReceive();
+        operationDone = false;
     }
 
-    // receive FSK packet
-    String str;
-    state = radio.receive(str);
-    /*
-      byte byteArr[8];
-      int state = radio.receive(byteArr, 8);
-    */
-    if (state == RADIOLIB_ERR_NONE)
+    if (operationDone)
     {
-        Serial.println(F("[SX1262] Received packet!"));
-        Serial.print(F("[SX1262] Data:\t"));
-        Serial.println(str);
-    }
-    else if (state == RADIOLIB_ERR_RX_TIMEOUT)
-    {
-        Serial.println(F("[SX1262] Timed out while waiting for packet!"));
-    }
-    else
-    {
-        Serial.println(F("[SX1262] Failed to receive packet, code "));
-        Serial.println(state);
-    }
+        uint8_t receive_data[255] = {0};
 
-    // FSK modem has built-in address filtering system
-    // it can be enabled by setting node address, broadcast
-    // address, or both
-    //
-    // to transmit packet to a particular address,
-    // use the following methods:
-    //
-    // radio.transmit("Hello World!", address);
-    // radio.startTransmit("Hello World!", address);
+        int state = radio.readData(receive_data, 9);
 
-    // set node address to 0x02
-    state = radio.setNodeAddress(0x02);
-    // set broadcast address to 0xFF
-    state = radio.setBroadcastAddress(0xFF);
-    if (state != RADIOLIB_ERR_NONE)
-    {
-        Serial.println(F("[SX1262] Unable to set address filter, code "));
-        Serial.println(state);
+        if (state == RADIOLIB_ERR_NONE)
+        {
+            for (uint8_t i = 0; i < 9; i++)
+            {
+                printf("[SX1262] data[%d]: %d\n", i, receive_data[i]);
+            }
+            printf("\n");
+        }
+        else if (state == RADIOLIB_ERR_RX_TIMEOUT)
+        {
+            Serial.println(F("[SX1262] Timed out while waiting for packet!"));
+        }
+        else if (state == RADIOLIB_ERR_CRC_MISMATCH)
+        {
+            Serial.println(F("[SX1262] CRC error"));
+        }
+        else
+        {
+            Serial.println(F("[SX1262] Failed to receive packet, code "));
+            Serial.println(state);
+        }
+
+        // reset flag
+        operationDone = false;
     }
-
-    // address filtering can also be disabled
-    // NOTE: calling this method will also erase previously set
-    //       node and broadcast address
-    /*
-      state = radio.disableAddressFiltering();
-      if (state != RADIOLIB_ERR_NONE) {
-        Serial.println(F("Unable to remove address filter, code "));
-      }
-    */
 }
