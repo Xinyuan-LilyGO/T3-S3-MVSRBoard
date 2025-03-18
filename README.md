@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-03-18 12:09:01
+ * @LastEditTime: 2025-03-18 12:10:25
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -13,7 +13,7 @@
 | Version                               | Update date                       |Update description|
 | :-------------------------------: | :-------------------------------: |:--------------: |
 | T3-S3-MVSRBoard_V1.0                      | 2024-11-06                    |   Original version      |
-| T3-S3-MVSRBoard_V1.1                      | 2024-11-06                    |   Replace microphone model      |
+| T3-S3-MVSRBoard_V1.1                      | 2025-03-18                    |   Replace microphone model      |
 
 ## PurchaseLink
 | Product                     | SOC           |  FLASH  |  PSRAM   | Link                   |
