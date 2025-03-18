@@ -2,7 +2,7 @@
  * @Description: 对讲机测试
  * @Author: LILYGO_L
  * @Date: 2024-11-07 10:04:25
- * @LastEditTime: 2025-02-05 17:06:51
+ * @LastEditTime: 2025-03-17 17:43:37
  * @License: GPL 3.0
  */
 #include "RadioLib.h"
@@ -47,10 +47,17 @@ volatile bool Radio_Operation_Flag = false;
 
 volatile bool Boot_Key_Flag = false;
 
+#if defined T3_S3_MVSRBoard_V1_0
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
     std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+#elif defined T3_S3_MVSRBoard_V1_1
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, -1, MP34DT05TR_LRCLK, MP34DT05TR_DATA);
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
-std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus));
+std::unique_ptr<Arduino_IIS> IIS(new Arduino_MEMS(IIS_Bus));
 
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
     std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
@@ -245,7 +252,7 @@ void Codec2_Task(void *parameter)
         {
             for (int i = 0; i < msm_sample_frequency; i++)
             {
-                if (MSM261->IIS_Read_Data(msm_sample_buf, msm_sample_buf_size) == true)
+                if (IIS->IIS_Read_Data(msm_sample_buf, msm_sample_buf_size) == true)
                 {
                     // for (int i = 0; i < 60; i++)
                     // {
@@ -357,9 +364,6 @@ void setup()
 
     pinMode(0, INPUT_PULLUP);
 
-    pinMode(MSM261_EN, OUTPUT);
-    digitalWrite(MSM261_EN, HIGH);
-
     pinMode(MAX98357A_SD_MODE, OUTPUT);
     digitalWrite(MAX98357A_SD_MODE, HIGH);
 
@@ -371,18 +375,38 @@ void setup()
         },
         FALLING); // Triggered every 1ms
 
+#if defined T3_S3_MVSRBoard_V1_0
+    pinMode(MSM261_EN, OUTPUT);
+    digitalWrite(MSM261_EN, HIGH);
+
     // 只有单个麦克风 所以只采集右声道数据
-    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
-                         IIS_SAMPLE_RATE, IIS_DATA_BIT, I2S_CHANNEL_FMT_ONLY_RIGHT) == false)
+    while (IIS->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                      IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MSM261 initialization fail");
         delay(2000);
     }
     Serial.println("MSM261 initialization successfully");
 
+#elif defined T3_S3_MVSRBoard_V1_1
+    pinMode(MP34DT05TR_EN, OUTPUT);
+    digitalWrite(MP34DT05TR_EN, LOW);
+
+    // 只有单个麦克风 所以只采集右声道数据
+    while (IIS->begin(i2s_mode_t::I2S_MODE_PDM, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                      IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
+    {
+        Serial.println("MP34DT05TR initialization fail");
+        delay(2000);
+    }
+    Serial.println("MP34DT05TR initialization successfully");
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
+
     // 扬声器左和右一半所以输出双声道
-    while (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
-                            IIS_SAMPLE_RATE, IIS_DATA_BIT, I2S_CHANNEL_FMT_RIGHT_LEFT) == false)
+    while (MAX98357A->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_OUT, i2s_channel_fmt_t::I2S_CHANNEL_FMT_RIGHT_LEFT,
+                            IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MAX98357A initialization fail");
         delay(2000);

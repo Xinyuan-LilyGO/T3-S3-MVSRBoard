@@ -2,7 +2,7 @@
  * @Description: 出厂测试
  * @Author: LILYGO_L
  * @Date: 2024-10-28 18:03:22
- * @LastEditTime: 2025-02-05 17:04:33
+ * @LastEditTime: 2025-03-18 11:47:48
  * @License: GPL 3.0
  */
 
@@ -34,8 +34,15 @@
 #define SOFTWARE_NAME "Original_Test_SX1280PA"
 #endif
 
-#define SOFTWARE_LASTEDITTIME "202412231019"
+#define SOFTWARE_LASTEDITTIME "202503181032"
+
+#if defined T3_S3_MVSRBoard_V1_0
 #define BOARD_VERSION "V1.0"
+#elif defined T3_S3_MVSRBoard_V1_1
+#define BOARD_VERSION "V1.1"
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
 #define WIFI_SSID "xinyuandianzi"
 #define WIFI_PASSWORD "AA15994823428"
@@ -138,12 +145,20 @@ void Arduino_IIC_Touch_Interrupt(void);
 std::unique_ptr<Arduino_IIC> PCF85063(new Arduino_PCF85063(IIC_Bus, PCF85063_DEVICE_ADDRESS,
                                                            DRIVEBUS_DEFAULT_VALUE, PCF85063_INT, Arduino_IIC_Touch_Interrupt));
 
-std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
-    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MSM261_BCLK, MSM261_WS, MSM261_DATA);
-std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus));
+#if defined T3_S3_MVSRBoard_V1_0
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, IIS_BCLK, IIS_WS, IIS_DATA);
+#elif defined T3_S3_MVSRBoard_V1_1
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, -1, MP34DT05TR_LRCLK, MP34DT05TR_DATA);
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
+
+std::unique_ptr<Arduino_IIS> IIS(new Arduino_MEMS(IIS_Bus_0));
 
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_1 =
-    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MAX98357A_BCLK, MAX98357A_LRCLK,
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MAX98357A_BCLK, MAX98357A_LRCLK,
                                     MAX98357A_DATA);
 std::unique_ptr<Arduino_IIS> MAX98357A(new Arduino_Amplifier(IIS_Bus_1));
 
@@ -151,7 +166,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, SCREEN_RST);
 
 Button_Triggered_Operator Button_Triggered_OP;
 
-Audio audio;
+Audio audio(false, 3, I2S_NUM_1);
 
 #ifdef T3_S3_SX1262
 SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
@@ -896,12 +911,14 @@ void Original_Test_2()
 
 void Original_Test_3()
 {
+#if defined T3_S3_MVSRBoard_V1_0
     pinMode(MSM261_EN, OUTPUT);
     digitalWrite(MSM261_EN, HIGH);
 
-    MSM261->end();
-    if (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
-                      IIS_SAMPLE_RATE, IIS_DATA_BIT, I2S_CHANNEL_FMT_ONLY_RIGHT) == false)
+    IIS->end();
+
+    if (IIS->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                   IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MSM261 initialization fail");
         delay(2000);
@@ -910,6 +927,27 @@ void Original_Test_3()
     {
         Serial.println("MSM261 initialization successfully");
     }
+
+#elif defined T3_S3_MVSRBoard_V1_1
+    pinMode(MP34DT05TR_EN, OUTPUT);
+    digitalWrite(MP34DT05TR_EN, LOW);
+
+    IIS->end();
+
+    if (IIS->begin(i2s_mode_t::I2S_MODE_PDM, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                   IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
+    {
+        Serial.println("MP34DT05TR initialization fail");
+        delay(2000);
+    }
+    else
+    {
+        Serial.println("MP34DT05TR initialization successfully");
+    }
+
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
     display.fillScreen(BLACK);
     display.setTextSize(1);
@@ -943,15 +981,14 @@ void Original_Test_4()
 
 void Original_Test_5()
 {
+#if defined T3_S3_MVSRBoard_V1_0
     pinMode(MSM261_EN, OUTPUT);
     digitalWrite(MSM261_EN, HIGH);
 
-    pinMode(MAX98357A_SD_MODE, OUTPUT);
-    digitalWrite(MAX98357A_SD_MODE, HIGH);
+    IIS->end();
 
-    MSM261->end();
-    if (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
-                      IIS_SAMPLE_RATE, IIS_DATA_BIT, I2S_CHANNEL_FMT_ONLY_RIGHT) == false)
+    if (IIS->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                   IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MSM261 initialization fail");
         delay(2000);
@@ -961,9 +998,33 @@ void Original_Test_5()
         Serial.println("MSM261 initialization successfully");
     }
 
+#elif defined T3_S3_MVSRBoard_V1_1
+    pinMode(MP34DT05TR_EN, OUTPUT);
+    digitalWrite(MP34DT05TR_EN, LOW);
+
+    IIS->end();
+
+    if (IIS->begin(i2s_mode_t::I2S_MODE_PDM, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
+                   IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
+    {
+        Serial.println("MP34DT05TR initialization fail");
+        delay(2000);
+    }
+    else
+    {
+        Serial.println("MP34DT05TR initialization successfully");
+    }
+
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
+
+    pinMode(MAX98357A_SD_MODE, OUTPUT);
+    digitalWrite(MAX98357A_SD_MODE, HIGH);
+
     MAX98357A->end();
-    if (MAX98357A->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_OUT,
-                         IIS_SAMPLE_RATE, IIS_DATA_BIT, I2S_CHANNEL_FMT_RIGHT_LEFT) == false)
+    if (MAX98357A->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_OUT, i2s_channel_fmt_t::I2S_CHANNEL_FMT_RIGHT_LEFT,
+                         IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MAX98357A initialization fail");
         delay(2000);
@@ -1449,7 +1510,7 @@ void Original_Test_Loop()
             {
                 short iis_read_buf[sizeof(short) * 100];
 
-                if (MSM261->IIS_Read_Data(iis_read_buf, sizeof(short) * 100) == true)
+                if (IIS->IIS_Read_Data(iis_read_buf, sizeof(short) * 100) == true)
                 {
                     display.fillRect(0, 20, 128, 40, BLACK);
 
@@ -1498,7 +1559,15 @@ void Original_Test_Loop()
             if ((temp == true) || (Skip_Current_Test == true))
             {
                 Skip_Current_Test = false;
+
+#if defined T3_S3_MVSRBoard_V1_0
                 digitalWrite(MSM261_EN, LOW);
+
+#elif defined T3_S3_MVSRBoard_V1_1
+                digitalWrite(MP34DT05TR_EN, HIGH);
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
                 break;
             }
         }
@@ -1602,7 +1671,7 @@ void Original_Test_Loop()
             // int16_t iis_buf[sizeof(short) * 100] = {0};
             // std::vector<short> output_buf;
 
-            // if (MSM261->IIS_Read_Data(iis_buf, sizeof(short) * 100) == true)
+            // if (IIS->IIS_Read_Data(iis_buf, sizeof(short) * 100) == true)
             // {
             //     // 单声道转双声道
             //     IIS_Dual_Conversion(iis_buf, &output_buf, 100, 1.0);
@@ -1742,7 +1811,14 @@ void Original_Test_Loop()
                 vTaskSuspend(Codec2_Task_Handle);
                 vTaskSuspend(MAX_Play_Task_Handle);
 
+#if defined T3_S3_MVSRBoard_V1_0
                 digitalWrite(MSM261_EN, LOW);
+
+#elif defined T3_S3_MVSRBoard_V1_1
+                digitalWrite(MP34DT05TR_EN, HIGH);
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
                 digitalWrite(MAX98357A_SD_MODE, LOW);
                 break;
             }
@@ -1806,7 +1882,7 @@ void Codec2_Task(void *parameter)
         {
             for (int i = 0; i < msm_sample_frequency; i++)
             {
-                if (MSM261->IIS_Read_Data(msm_sample_buf, msm_sample_buf_size) == true)
+                if (IIS->IIS_Read_Data(msm_sample_buf, msm_sample_buf_size) == true)
                 {
                     // for (int i = 0; i < 60; i++)
                     // {

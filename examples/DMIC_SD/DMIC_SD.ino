@@ -4,7 +4,7 @@
         44.1kHz mono sampling rate.
  * @Author: LILYGO_L
  * @Date: 2023-08-17 15:55:47
- * @LastEditTime: 2025-02-05 17:03:54
+ * @LastEditTime: 2025-03-17 17:30:06
  * @License: GPL 3.0
  */
 
@@ -34,10 +34,17 @@ char Wave_CommunicationData[MICROPHONE_NUM_COMMUNICATION_DATA];
 
 File file;
 
+#if defined T3_S3_MVSRBoard_V1_0
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
-    std::make_shared<Arduino_HWIIS>(I2S_NUM_1, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
+#elif defined T3_S3_MVSRBoard_V1_1
+std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus =
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, -1, MP34DT05TR_LRCLK, MP34DT05TR_DATA);
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
-std::unique_ptr<Arduino_IIS> MSM261(new Arduino_MEMS(IIS_Bus));
+std::unique_ptr<Arduino_IIS> IIS(new Arduino_MEMS(IIS_Bus));
 
 void CreateWavHeader(uint8_t *header, int totalDataLen, int longSampleRate, uint8_t channels, int byteRate, uint8_t blockAlign)
 {
@@ -125,16 +132,32 @@ void setup()
 {
     Serial.begin(115200);
 
+#if defined T3_S3_MVSRBoard_V1_0
     pinMode(MSM261_EN, OUTPUT);
     digitalWrite(MSM261_EN, HIGH);
 
-    while (MSM261->begin(Arduino_IIS_DriveBus::Device_Data_Mode::DATA_IN,
-                         MICROPHONE_SAMPLE_RATE, MICROPHONE_DATA_BIT) == false)
+    while (IIS->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_RIGHT_LEFT,
+                      MICROPHONE_DATA_BIT, MICROPHONE_SAMPLE_RATE) == false)
     {
         Serial.println("MSM261 initialization fail");
         delay(2000);
     }
     Serial.println("MSM261 initialization successfully");
+
+#elif defined T3_S3_MVSRBoard_V1_1
+    pinMode(MP34DT05TR_EN, OUTPUT);
+    digitalWrite(MP34DT05TR_EN, LOW);
+
+    while (IIS->begin(i2s_mode_t::I2S_MODE_PDM, ad_iis_data_mode_t::AD_IIS_DATA_IN, i2s_channel_fmt_t::I2S_CHANNEL_FMT_RIGHT_LEFT,
+                      MICROPHONE_DATA_BIT, MICROPHONE_SAMPLE_RATE) == false)
+    {
+        Serial.println("MP34DT05TR initialization fail");
+        delay(2000);
+    }
+    Serial.println("MP34DT05TR initialization successfully");
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
     SPI.begin(SD_SCLK, SD_MISO, SD_MOSI, SD_CS); // SPI boots
     while (!SD.begin(SD_CS, SPI, 80000000))
@@ -175,7 +198,7 @@ void setup()
 
     for (int j = 0; j < MICROPHONE_WAVE_DATA_SIZE / MICROPHONE_NUM_COMMUNICATION_DATA; ++j)
     {
-        MSM261->IIS_Read_Data(Wave_CommunicationData, MICROPHONE_NUM_COMMUNICATION_DATA);
+        IIS->IIS_Read_Data(Wave_CommunicationData, MICROPHONE_NUM_COMMUNICATION_DATA);
 
         // // 单声道数据处理，当使用单声道时需要处理另一个声道的数据
         // // 防止对有效声道的干扰产生杂音，当使用两个麦克风组成双声道时可以屏蔽此步骤。

@@ -4,9 +4,14 @@
  * @Author: None
  * @Date: 2023-06-05 13:01:59
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2024-12-23 09:04:00
+ * @LastEditTime: 2025-03-18 12:01:33
  */
 #pragma once
+
+/////////////////////////////////////////////////////////////////////////
+// #define T3_S3_MVSRBoard_V1_0
+#define T3_S3_MVSRBoard_V1_1
+/////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////
 #define T3_S3_SX1262
@@ -78,11 +83,20 @@
 #define PCF85063_IIC_SCL 45
 #define PCF85063_INT 16
 
+#if defined T3_S3_MVSRBoard_V1_0
 // MSM261S4030H0R
 #define MSM261_EN 35
 #define MSM261_BCLK 47
 #define MSM261_WS 15
 #define MSM261_DATA 48
+#elif defined T3_S3_MVSRBoard_V1_1
+// MP34DT05TR
+#define MP34DT05TR_LRCLK 15
+#define MP34DT05TR_DATA 48
+#define MP34DT05TR_EN 35
+#else
+#error "Unknown macro definition. Please select the correct macro definition."
+#endif
 
 // MAX98357AETE+T
 #define MAX98357A_BCLK 40

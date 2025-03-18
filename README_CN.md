@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-02-06 12:11:01
+ * @LastEditTime: 2025-03-18 12:07:07
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -13,12 +13,13 @@
 | Version                               | Update date                       |Update description|
 | :-------------------------------: | :-------------------------------: |:--------------: |
 | T3-S3-MVSRBoard_V1.0                      | 2024-11-06                    |   初始版本      |
+| T3-S3-MVSRBoard_V1.1                      | 2025-03-18                    |   更换麦克风型号      |
 
 ## 购买链接
 
 | Product                     | SOC           |  FLASH  |  PSRAM   | Link                   |
 | :------------------------: | :-----------: |:-------: | :---------: | :------------------: |
-| T3-S3-MVSRBoard_V1.0   | NULL |   NULL   | NULL |  [NULL]()   |
+| T3-S3-MVSRBoard_V1.0-V1.1   | NULL |   NULL   | NULL |  [NULL]()   |
 
 ## 目录
 - [描述](#描述)
@@ -52,12 +53,21 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 
 ### 2. 麦克风
 
-* 芯片：MSM261S4030H0R
-* 总线通信协议：IIS
-* 相关资料：
-   >[MSM261S4030H0R](./information/MEMSensing-MSM261S4030H0R.pdf)
-* 依赖库：
-    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+> #### T3-S3-MVSRBoard_V1.0 版本
+> * 芯片：MSM261S4030H0R
+> * 总线通信协议：IIS
+> * 相关资料：
+>    >[MSM261S4030H0R](./information/MEMSensing-MSM261S4030H0R.pdf)
+> * 依赖库：
+>     >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+
+> #### T3-S3-MVSRBoard_V1.1 版本
+> * 芯片：MP34DT05-A
+> * 总线通信协议：PDM
+> * 相关资料：
+>    >[MP34DT05-A](./information/mp34dt05-a.pdf)
+> * 依赖库：
+>    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
 
 ### 3. 振动
 
@@ -104,11 +114,11 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 
 | Firmware | Description | Picture |
 | ------  | ------  | ------ |
-| [Original_Test(SX1262)](./firmware/(修复lora错误)[T3-S3-MVSRBoard][Original_Test][SX1262]_firmware_202412231019.bin) | 出厂程序 |  |
-| [Original_Test(SX1276)](./firmware/(切换为SD卡播放音乐)[T3-S3-MVSRBoard][Original_Test][SX1276]_firmware_202412181826.bin) | 出厂程序 |  |
-| [Original_Test(SX1278)](./firmware/(切换为SD卡播放音乐)[T3-S3-MVSRBoard][Original_Test][SX1278]_firmware_202412181826.bin) | 出厂程序 |  |
-| [Original_Test(SX1280)](./firmware/(切换为SD卡播放音乐)[T3-S3-MVSRBoard][Original_Test][SX1280]_firmware_202412181826.bin) | 出厂程序 |  |
-| [Original_Test(SX1280PA)](./firmware/(切换为SD卡播放音乐)[T3-S3-MVSRBoard][Original_Test][SX1280PA]_firmware_202412181826.bin) | 出厂程序 |  |
+| [Original_Test(SX1262)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1262]_firmware/) | 出厂程序 |  |
+| [Original_Test(SX1276)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1276]_firmware/) | 出厂程序 |  |
+| [Original_Test(SX1278)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1278]_firmware/) | 出厂程序 |  |
+| [Original_Test(SX1280)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280]_firmware/) | 出厂程序 |  |
+| [Original_Test(SX1280PA)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280PA]_firmware/) | 出厂程序 |  |
 
 ### PlatformIO
 1. 安装 [VisualStudioCode](https://code.visualstudio.com/Download) ，根据你的系统类型选择安装。
@@ -175,12 +185,20 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 | DATA         | IO39       |
 | SD_MODE         | IO38       |
 
-| 麦克风引脚  | ESP32S3引脚|
-| :------------------: | :------------------:|
-| BCLK         | IO47       |
-| WS         | IO15       |
-| DATA         | IO48       |
-| EN         | IO35       |
+> #### T3-S3-MVSRBoard_V1.0 版本
+> | 麦克风引脚  | ESP32S3引脚|
+> | :------------------: | :------------------:|
+> | BCLK         | IO47        |
+> | WS         | IO15       |
+> | DATA         | IO48        |
+> | EN         | IO35       |
+
+> #### T3-S3-MVSRBoard_V1.1 版本
+> | 麦克风引脚  | ESP32S3引脚|
+> | :------------------: | :------------------:|
+> | LRCLK         | IO15       |
+> | DATA         | IO48       |
+> | EN         | IO35       |
 
 | 振动马达引脚  | ESP32S3引脚|
 | :------------------: | :------------------:|
