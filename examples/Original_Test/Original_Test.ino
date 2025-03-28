@@ -2,7 +2,7 @@
  * @Description: 出厂测试
  * @Author: LILYGO_L
  * @Date: 2024-10-28 18:03:22
- * @LastEditTime: 2025-03-18 11:47:48
+ * @LastEditTime: 2025-03-28 15:38:15
  * @License: GPL 3.0
  */
 
@@ -34,7 +34,7 @@
 #define SOFTWARE_NAME "Original_Test_SX1280PA"
 #endif
 
-#define SOFTWARE_LASTEDITTIME "202503181032"
+#define SOFTWARE_LASTEDITTIME "202503281536"
 
 #if defined T3_S3_MVSRBoard_V1_0
 #define BOARD_VERSION "V1.0"
@@ -56,7 +56,7 @@
 
 #define LORA_TRANSMISSION_HEAD_SIZE 12
 
-#define LORA_TRANSMISSION_DATA_SIZE 200
+#define LORA_TRANSMISSION_DATA_SIZE 240
 
 #define SD_FILE_NAME "/music.mp3"
 
@@ -1023,7 +1023,7 @@ void Original_Test_5()
     digitalWrite(MAX98357A_SD_MODE, HIGH);
 
     MAX98357A->end();
-    if (MAX98357A->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_OUT, i2s_channel_fmt_t::I2S_CHANNEL_FMT_RIGHT_LEFT,
+    if (MAX98357A->begin(i2s_mode_t::I2S_MODE_MASTER, ad_iis_data_mode_t::AD_IIS_DATA_OUT, i2s_channel_fmt_t::I2S_CHANNEL_FMT_ONLY_RIGHT,
                          IIS_DATA_BIT, IIS_SAMPLE_RATE) == false)
     {
         Serial.println("MAX98357A initialization fail");
@@ -1039,7 +1039,8 @@ void Original_Test_5()
     int state = -1;
 
 #if defined(T3_S3_SX1262)
-    state = radio.beginFSK();
+    // state = radio.beginFSK();
+    state = radio.begin();
 #endif
 
 #if defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA) || defined(T3_S3_SX1276) || defined(T3_S3_SX1278)
@@ -1056,9 +1057,9 @@ void Original_Test_5()
         Radio_Initialization_Flag = true;
 
 #ifdef T3_S3_SX1262
-        radio.setFrequency(868.1);
+        radio.setFrequency(850.0);
+        radio.setBitRate(100.0);
         radio.setBandwidth(500.0);
-
         radio.setCurrentLimit(140);
         radio.setOutputPower(22);
 #endif
@@ -1089,9 +1090,8 @@ void Original_Test_5()
         radio.setOutputPower(3);
 #endif
         radio.setSpreadingFactor(9);
-        radio.setCodingRate(6);
-        radio.setSyncWord(0xAB);
-        radio.setPreambleLength(16);
+        radio.setCodingRate(7);
+        radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
         radio.setCRC(false);
 
         display.setFont(NULL);
@@ -1103,9 +1103,9 @@ void Original_Test_5()
         display.setFont(&Org_01);
         display.setCursor(0, 20);
 
-        display.print("MODE:FSK");
+        display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:868.1MHz");
+        display.print("F:850.0MHz");
         display.setCursor(0, 33);
         display.print("B:500kHz");
         display.setCursor(0, 40);
@@ -1116,7 +1116,7 @@ void Original_Test_5()
 
         display.setFont(&Org_01);
         display.setCursor(0, 20);
-        display.print("MODE:FSK");
+        display.print("MODE:LORA");
         display.setCursor(0, 26);
         display.print("F:868.1MHz");
         display.setCursor(0, 33);
@@ -1129,7 +1129,7 @@ void Original_Test_5()
 
         display.setFont(&Org_01);
         display.setCursor(0, 20);
-        display.print("MODE:FSK");
+        display.print("MODE:LORA");
         display.setCursor(0, 26);
         display.print("F:433.1MHz");
         display.setCursor(0, 33);
@@ -1723,10 +1723,12 @@ void Original_Test_Loop()
                             radio.begin();
 #endif
 #if defined(T3_S3_SX1262)
-                            radio.beginFSK();
+                            // radio.beginFSK();
+                            radio.begin();
 #endif
 #ifdef T3_S3_SX1262
-                            radio.setFrequency(868.1);
+                            radio.setFrequency(850.0);
+                            radio.setBitRate(100.0);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(140);
                             radio.setOutputPower(22);
@@ -1755,9 +1757,8 @@ void Original_Test_Loop()
                             radio.setOutputPower(3);
 #endif
                             radio.setSpreadingFactor(9);
-                            radio.setCodingRate(6);
-                            radio.setSyncWord(0xAB);
-                            radio.setPreambleLength(16);
+                            radio.setCodingRate(7);
+                            radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
                             radio.setCRC(false);
 
                             radio.startReceive();
@@ -1925,7 +1926,7 @@ void Codec2_Task(void *parameter)
             codec2_decode(codec2_state, codec2_buf, lora_data_buf);
             // Serial.println("Done decoding, took ms: " + String(millis() - startTimeDecode));
 
-            IIS_Dual_Conversion(codec2_buf, &output_buf, codec2_sample_size, 5.0);
+            // IIS_Dual_Conversion(codec2_buf, &output_buf, codec2_sample_size, 5.0);
 
             // if (MAX98357A->IIS_Write_Data(output_buf.data(), max_sample_buf_size) == true)
             // {
@@ -1941,12 +1942,19 @@ void Codec2_Task(void *parameter)
 
             // Serial.printf("size0: %d\n", output_buf_size);
 
+            // // 调整容量
+            // IIS_Write_Data_Stream.resize(current_buf_size + output_buf.size());
+
+            // // 存储数据
+            // memcpy(IIS_Write_Data_Stream.data() + current_buf_size, output_buf.data(),
+            //        sizeof(short) * output_buf.size());
+
             // 调整容量
-            IIS_Write_Data_Stream.resize(current_buf_size + output_buf.size());
+            IIS_Write_Data_Stream.resize(current_buf_size + codec2_sample_size);
 
             // 存储数据
-            memcpy(IIS_Write_Data_Stream.data() + current_buf_size, output_buf.data(),
-                   sizeof(short) * output_buf.size());
+            memcpy(IIS_Write_Data_Stream.data() + current_buf_size, codec2_buf,
+                   sizeof(short) * codec2_sample_size);
         }
     }
 }
