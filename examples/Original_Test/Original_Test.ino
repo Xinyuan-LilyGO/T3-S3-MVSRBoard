@@ -2,7 +2,7 @@
  * @Description: 出厂测试
  * @Author: LILYGO_L
  * @Date: 2024-10-28 18:03:22
- * @LastEditTime: 2025-03-28 15:38:15
+ * @LastEditTime: 2025-04-22 14:50:01
  * @License: GPL 3.0
  */
 
@@ -20,21 +20,28 @@
 
 #ifdef T3_S3_SX1262
 #define SOFTWARE_NAME "Original_Test_SX1262"
+// #define LORA_FREQUENCY 868.0
+#define LORA_FREQUENCY 915.0
 #endif
 #ifdef T3_S3_SX1276
 #define SOFTWARE_NAME "Original_Test_SX1276"
+// #define LORA_FREQUENCY 868.0
+#define LORA_FREQUENCY 915.0
 #endif
 #ifdef T3_S3_SX1278
 #define SOFTWARE_NAME "Original_Test_SX1278"
+#define LORA_FREQUENCY 434.0
 #endif
 #ifdef T3_S3_SX1280
 #define SOFTWARE_NAME "Original_Test_SX1280"
+#define LORA_FREQUENCY 2400.0
 #endif
 #ifdef T3_S3_SX1280PA
 #define SOFTWARE_NAME "Original_Test_SX1280PA"
+#define LORA_FREQUENCY 2400.0
 #endif
 
-#define SOFTWARE_LASTEDITTIME "202503281536"
+#define SOFTWARE_LASTEDITTIME "202504221410"
 
 #if defined T3_S3_MVSRBoard_V1_0
 #define BOARD_VERSION "V1.0"
@@ -147,7 +154,7 @@ std::unique_ptr<Arduino_IIC> PCF85063(new Arduino_PCF85063(IIC_Bus, PCF85063_DEV
 
 #if defined T3_S3_MVSRBoard_V1_0
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
-    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, IIS_BCLK, IIS_WS, IIS_DATA);
+    std::make_shared<Arduino_HWIIS>(I2S_NUM_0, MSM261_BCLK, MSM261_WS, MSM261_DATA);
 #elif defined T3_S3_MVSRBoard_V1_1
 std::shared_ptr<Arduino_IIS_DriveBus> IIS_Bus_0 =
     std::make_shared<Arduino_HWIIS>(I2S_NUM_0, -1, MP34DT05TR_LRCLK, MP34DT05TR_DATA);
@@ -1038,14 +1045,7 @@ void Original_Test_5()
     SPI.begin(LORA_SCLK, LORA_MISO, LORA_MOSI);
     int state = -1;
 
-#if defined(T3_S3_SX1262)
-    // state = radio.beginFSK();
     state = radio.begin();
-#endif
-
-#if defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA) || defined(T3_S3_SX1276) || defined(T3_S3_SX1278)
-    state = radio.begin();
-#endif
 
     display.fillScreen(BLACK);
     display.setTextSize(1);
@@ -1057,34 +1057,33 @@ void Original_Test_5()
         Radio_Initialization_Flag = true;
 
 #ifdef T3_S3_SX1262
-        radio.setFrequency(850.0);
-        radio.setBitRate(100.0);
+        radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(500.0);
         radio.setCurrentLimit(140);
         radio.setOutputPower(22);
 #endif
 #ifdef T3_S3_SX1276
-        radio.setFrequency(868.1);
+        radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(500.0);
 
         radio.setCurrentLimit(240);
         radio.setOutputPower(17);
 #endif
 #ifdef T3_S3_SX1278
-        radio.setFrequency(433.1);
+        radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(500.0);
 
         radio.setCurrentLimit(240);
         radio.setOutputPower(17);
 #endif
 #ifdef T3_S3_SX1280
-        radio.setFrequency(2400.1);
+        radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(1625.0);
 
         radio.setOutputPower(13);
 #endif
 #ifdef T3_S3_SX1280PA
-        radio.setFrequency(2400.1);
+        radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(1625.0);
 
         radio.setOutputPower(3);
@@ -1105,7 +1104,8 @@ void Original_Test_5()
 
         display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:850.0MHz");
+
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
         display.setCursor(0, 33);
         display.print("B:500kHz");
         display.setCursor(0, 40);
@@ -1118,7 +1118,7 @@ void Original_Test_5()
         display.setCursor(0, 20);
         display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:868.1MHz");
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
         display.setCursor(0, 33);
         display.print("B:500kHz");
         display.setCursor(0, 40);
@@ -1131,7 +1131,7 @@ void Original_Test_5()
         display.setCursor(0, 20);
         display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:433.1MHz");
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
         display.setCursor(0, 33);
         display.print("B:500kHz");
         display.setCursor(0, 40);
@@ -1144,7 +1144,7 @@ void Original_Test_5()
         display.setCursor(0, 20);
         display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:2400.1MHz");
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
         display.setCursor(0, 33);
         display.print("B:1625.0kHz");
         display.setCursor(0, 40);
@@ -1157,7 +1157,7 @@ void Original_Test_5()
         display.setCursor(0, 20);
         display.print("MODE:LORA");
         display.setCursor(0, 26);
-        display.print("F:2400.1MHz");
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
         display.setCursor(0, 33);
         display.print("B:1625.0kHz");
         display.setCursor(0, 40);
@@ -1719,39 +1719,34 @@ void Original_Test_Loop()
 
                         if (Lora_Transmission_Mode == 0)
                         {
-#if defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA) || defined(T3_S3_SX1276) || defined(T3_S3_SX1278)
+
                             radio.begin();
-#endif
-#if defined(T3_S3_SX1262)
-                            // radio.beginFSK();
-                            radio.begin();
-#endif
+
 #ifdef T3_S3_SX1262
-                            radio.setFrequency(850.0);
-                            radio.setBitRate(100.0);
+                            radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(140);
                             radio.setOutputPower(22);
 #endif
 #ifdef T3_S3_SX1276
-                            radio.setFrequency(868.1);
+                            radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(240);
                             radio.setOutputPower(17);
 #endif
 #ifdef T3_S3_SX1278
-                            radio.setFrequency(433.1);
+                            radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(240);
                             radio.setOutputPower(17);
 #endif
 #ifdef T3_S3_SX1280
-                            radio.setFrequency(2400.1);
+                            radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(1625.0);
                             radio.setOutputPower(13);
 #endif
 #ifdef T3_S3_SX1280PA
-                            radio.setFrequency(2400.1);
+                            radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(1625.0);
 
                             radio.setOutputPower(3);

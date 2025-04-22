@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-04-22 11:25:08
+ * @LastEditTime: 2025-04-22 14:59:56
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -113,11 +113,8 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 
 | Firmware | Description | Picture |
 | ------  | ------  | ------ |
-| [Original_Test(SX1262)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1262]_firmware/) | Original factory program |  |
-| [Original_Test(SX1276)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1276]_firmware/) | Original factory program |  |
-| [Original_Test(SX1278)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1278]_firmware/) | Original factory program |  |
-| [Original_Test(SX1280)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280]_firmware/) | Original factory program |  |
-| [Original_Test(SX1280PA)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280PA]_firmware/) | Original factory program |  |
+| [Original_Test(V1.0)](./firmware/T3-S3-MVSRBoard_V1.0/) | Original factory program |  |
+| [Original_Test(V1.1)](./firmware/T3-S3-MVSRBoard_V1.1/) | Original factory program |  |
 
 ### PlatformIO
 1. Install [VisualStudioCode](https://code.visualstudio.com/Download) ,Choose installation based on your system type.
@@ -251,7 +248,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 ### Power Dissipation
 | Firmware | Program| Description | Picture |
 | ------  | ------  | ------ | ------ | 
-| [Sleep_Wake_Up](./firmware/[T3-S3-MVSRBoard][Sleep_Wake_Up][SX1262]_firmware_V1.0.0_202411041104.bin) | [Sleep_Wake_Up](./examples/Sleep_Wake_Up) | Static current: 2.77 μA for more information please refer to [Power Consumption Test Log](./relevant_test/PowerConsumptionTestLog_[T3-S3-MVSRBoard_V1.0]_20241104.pdf) | |
+| [Sleep_Wake_Up](./firmware/[T3-S3-MVSRBoard_V1.0][Sleep_Wake_Up][SX1262]_firmware_V1.0.0_202411041104.bin) | [Sleep_Wake_Up](./examples/Sleep_Wake_Up) | Static current: 2.77 μA for more information please refer to [Power Consumption Test Log](./relevant_test/PowerConsumptionTestLog_[T3-S3-MVSRBoard_V1.0]_20241104.pdf) | |
 
 ## FAQ
 

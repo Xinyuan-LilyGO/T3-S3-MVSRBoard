@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-04-22 11:24:20
+ * @LastEditTime: 2025-04-22 14:58:53
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -114,11 +114,8 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 
 | Firmware | Description | Picture |
 | ------  | ------  | ------ |
-| [Original_Test(SX1262)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1262]_firmware/) | 出厂程序 |  |
-| [Original_Test(SX1276)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1276]_firmware/) | 出厂程序 |  |
-| [Original_Test(SX1278)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1278]_firmware/) | 出厂程序 |  |
-| [Original_Test(SX1280)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280]_firmware/) | 出厂程序 |  |
-| [Original_Test(SX1280PA)](./firmware/[T3-S3-MVSRBoard][Original_Test][SX1280PA]_firmware/) | 出厂程序 |  |
+| [Original_Test(V1.0)](./firmware/T3-S3-MVSRBoard_V1.0/) | 出厂程序 |  |
+| [Original_Test(V1.1)](./firmware/T3-S3-MVSRBoard_V1.1/) | 出厂程序 |  |
 
 ### PlatformIO
 1. 安装 [VisualStudioCode](https://code.visualstudio.com/Download) ，根据你的系统类型选择安装。
@@ -251,7 +248,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 ### 功耗
 | Firmware | Program| Description | Picture |
 | ------  | ------  | ------ | ------ | 
-| [Sleep_Wake_Up](./firmware/[T3-S3-MVSRBoard][Sleep_Wake_Up][SX1262]_firmware_V1.0.0_202411041104.bin) | [Sleep_Wake_Up](./examples/Sleep_Wake_Up) | 静态电流: 2.77 µA 更多信息请查看 [功耗测试日志](./relevant_test/PowerConsumptionTestLog_[T3-S3-MVSRBoard_V1.0]_20241104.pdf) | |
+| [Sleep_Wake_Up](./firmware/[T3-S3-MVSRBoard_V1.0][Sleep_Wake_Up][SX1262]_firmware_V1.0.0_202411041104.bin) | [Sleep_Wake_Up](./examples/Sleep_Wake_Up) | 静态电流: 2.77 µA 更多信息请查看 [功耗测试日志](./relevant_test/PowerConsumptionTestLog_[T3-S3-MVSRBoard_V1.0]_20241104.pdf) | |
 
 ## 常见问题
 

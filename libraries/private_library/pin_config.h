@@ -4,7 +4,7 @@
  * @Author: None
  * @Date: 2023-06-05 13:01:59
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2025-03-18 12:01:33
+ * @LastEditTime: 2025-04-22 14:51:12
  */
 #pragma once
 
@@ -14,8 +14,8 @@
 /////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////
-#define T3_S3_SX1262
-// #define T3_S3_SX1276
+// #define T3_S3_SX1262
+#define T3_S3_SX1276
 // #define T3_S3_SX1278
 // #define T3_S3_SX1280
 // #define T3_S3_SX1280PA
