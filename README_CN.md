@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-03-18 12:07:07
+ * @LastEditTime: 2025-04-22 11:24:20
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -272,6 +272,11 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 
 * Q. 为什么我的板子一直烧录失败呢？
 * A. 请按住“BOOT-0”按键重新下载程序。
+
+<br />
+
+* Q. 为什么我的MVSR板切换到发射模式时，对讲机示例会产生大声的嗡嗡声？
+* A. T3-S3-MVSRBoard有两个版本，请确认自己的板子使用的是哪个版本，然后在[pin_config](/libraries/private_library/pin_config.h)中选择正确版本的宏定义重新烧录程序即可
 
 ## 项目
 * [T3-S3-MVSRBoard_V1.0](./project/T3-S3-MVSRBoard_V1.0.pdf)

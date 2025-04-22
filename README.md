@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-03-27 15:13:35
+ * @LastEditTime: 2025-04-22 11:25:08
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -272,6 +272,11 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 
 * Q. Why is my board continuously failing to download the program?
 * A. Please hold down the "BOOT-0" button and try downloading the program again.
+
+<br />
+
+* Q. Why does the walkie-talkie example produce a loud buzzing sound when my MVSR board is switched to transmit mode?
+* A. The T3-S3-MVSRBoard has two versions. Please confirm which version your board is using, and then select the correct version macro definition in [pin_config](/libraries/private_library/pin_config.h) and re-flash the program.
 
 ## Project
 * [T3-S3-MVSRBoard_V1.0](./project/T3-S3-MVSRBoard_V1.0.pdf)
