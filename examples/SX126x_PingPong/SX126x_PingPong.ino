@@ -74,7 +74,7 @@ void setup()
             ;
     }
 
-    radio.setFrequency(868.1);
+    radio.setFrequency(850.0);
     radio.setBandwidth(125.0);
     radio.setSpreadingFactor(9);
     radio.setCodingRate(7);
