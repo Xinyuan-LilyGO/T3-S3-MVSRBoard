@@ -2,7 +2,7 @@
  * @Description: SX128x_PingPong_2 test
  * @Author: LILYGO_L
  * @Date: 2024-12-02 10:43:22
- * @LastEditTime: 2025-02-05 17:38:04
+ * @LastEditTime: 2025-05-08 14:25:21
  * @License: GPL 3.0
  */
 #include "RadioLib.h"
@@ -55,6 +55,8 @@ void Lora_Transmission_Flag_Callback(void)
 void setup()
 {
     Serial.begin(115200);
+    Serial.println("Ciallo");
+    Serial.println("202505081425");
 
     // initialize SX1280 with default settings
     Serial.println("[SX1280] Initializing ... ");
@@ -72,13 +74,18 @@ void setup()
             ;
     }
 
+#if defined(LORA_RX) && defined(LORA_TX)
+    // The SX1280 version needs to set RX, TX antenna switching pins
+    radio.setRfSwitchPins(LORA_RX, LORA_TX);
+#endif
+
     // radio.setFrequency(914.9);
     radio.setFrequency(2400.1);
     radio.setBandwidth(1625.0);
     radio.setSpreadingFactor(12);
     radio.setCodingRate(6);
     radio.setSyncWord(0xAB);
-    radio.setOutputPower(13);
+    radio.setOutputPower(3);
     radio.setPreambleLength(16);
     radio.setCRC(false);
 
@@ -95,14 +102,12 @@ void loop()
         Lora_Mode = !Lora_Mode;
 
         radio.begin();
-        // radio.setFrequency(914.9);
         radio.setFrequency(2400.1);
-        // radio.setBandwidth(1625.0);
-        radio.setBandwidth(812.5);
+        radio.setBandwidth(1625.0);
         radio.setSpreadingFactor(12);
         radio.setCodingRate(6);
         radio.setSyncWord(0xAB);
-        radio.setOutputPower(13);
+        radio.setOutputPower(3);
         radio.setPreambleLength(16);
         radio.setCRC(false);
 

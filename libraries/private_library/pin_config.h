@@ -4,7 +4,7 @@
  * @Author: None
  * @Date: 2023-06-05 13:01:59
  * @LastEditors: Please set LastEditors
- * @LastEditTime: 2025-04-22 14:51:12
+ * @LastEditTime: 2025-05-08 15:00:45
  */
 #pragma once
 
@@ -15,30 +15,34 @@
 
 /////////////////////////////////////////////////////////////////////////
 // #define T3_S3_SX1262
-#define T3_S3_SX1276
+// #define T3_S3_SX1276
 // #define T3_S3_SX1278
 // #define T3_S3_SX1280
 // #define T3_S3_SX1280PA
+#define T3_S3_LR1121
 
 #ifdef T3_S3_SX1262
 #define LORA_DIO1 33
 #define LORA_BUSY 34
-#endif
 
-#if defined(T3_S3_SX1276) || defined(T3_S3_SX1278)
+#elif defined(T3_S3_SX1276) || defined(T3_S3_SX1278)
 #define LORA_DIO0 9
 #define LORA_DIO1 33
 #define LORA_DIO2 34
 #define LORA_DIO3 21
 #define LORA_DIO4 10
 #define LORA_DIO5 36
-#endif
 
-#if defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA)
+#elif defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA)
 #define LORA_DIO1 9
 #define LORA_BUSY 36
 #define LORA_TX 10
 #define LORA_RX 21
+
+#elif defined(T3_S3_LR1121)
+#define LORA_DIO9 36
+#define LORA_BUSY 34
+
 #endif
 
 /////////////////////////////////////////////////////////////////////////

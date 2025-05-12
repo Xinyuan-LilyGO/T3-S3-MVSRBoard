@@ -2,7 +2,7 @@
  * @Description: 出厂测试
  * @Author: LILYGO_L
  * @Date: 2024-10-28 18:03:22
- * @LastEditTime: 2025-04-22 14:50:01
+ * @LastEditTime: 2025-05-08 16:15:50
  * @License: GPL 3.0
  */
 
@@ -22,26 +22,28 @@
 #define SOFTWARE_NAME "Original_Test_SX1262"
 // #define LORA_FREQUENCY 868.0
 #define LORA_FREQUENCY 915.0
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
 #define SOFTWARE_NAME "Original_Test_SX1276"
 // #define LORA_FREQUENCY 868.0
 #define LORA_FREQUENCY 915.0
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
 #define SOFTWARE_NAME "Original_Test_SX1278"
 #define LORA_FREQUENCY 434.0
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
 #define SOFTWARE_NAME "Original_Test_SX1280"
 #define LORA_FREQUENCY 2400.0
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
 #define SOFTWARE_NAME "Original_Test_SX1280PA"
 #define LORA_FREQUENCY 2400.0
+#elif defined T3_S3_LR1121
+#define SOFTWARE_NAME "Original_Test_LR1121"
+// #define LORA_FREQUENCY 870.0
+// #define LORA_OUTPUT_POWER 22
+#define LORA_FREQUENCY 2200.0
+#define LORA_OUTPUT_POWER 13
 #endif
 
-#define SOFTWARE_LASTEDITTIME "202504221410"
+#define SOFTWARE_LASTEDITTIME "202505081456"
 
 #if defined T3_S3_MVSRBoard_V1_0
 #define BOARD_VERSION "V1.0"
@@ -177,18 +179,14 @@ Audio audio(false, 3, I2S_NUM_1);
 
 #ifdef T3_S3_SX1262
 SX1262 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
-#endif
-
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
 SX1276 radio = new Module(LORA_CS, LORA_DIO0, LORA_RST, LORA_DIO1, SPI);
-#endif
-
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
 SX1278 radio = new Module(LORA_CS, LORA_DIO0, LORA_RST, LORA_DIO1, SPI);
-#endif
-
-#if defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA)
+#elif defined(T3_S3_SX1280) || defined(T3_S3_SX1280PA)
 SX1280 radio = new Module(LORA_CS, LORA_DIO1, LORA_RST, LORA_BUSY, SPI);
+#elif defined T3_S3_LR1121
+LR1121 radio = new Module(LORA_CS, LORA_DIO9, LORA_RST, LORA_BUSY, SPI);
 #endif
 
 TaskHandle_t Codec2_Task_Handle = NULL;
@@ -1047,6 +1045,37 @@ void Original_Test_5()
 
     state = radio.begin();
 
+#if defined(LORA_RX) && defined(LORA_TX)
+    // The SX1280 version needs to set RX, TX antenna switching pins
+    radio.setRfSwitchPins(LORA_RX, LORA_TX);
+#endif
+
+#if defined(T3_S3_LR1121)
+    // LR1121
+    // set RF switch configuration for Wio WM1110
+    // Wio WM1110 uses DIO5 and DIO6 for RF switching
+    static const uint32_t rfswitch_dio_pins[] = {
+        RADIOLIB_LR11X0_DIO5, RADIOLIB_LR11X0_DIO6,
+        RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC};
+
+    static const Module::RfSwitchMode_t rfswitch_table[] = {
+        // mode                  DIO5  DIO6
+        {LR11x0::MODE_STBY, {LOW, LOW}},
+        {LR11x0::MODE_RX, {HIGH, LOW}},
+        {LR11x0::MODE_TX, {LOW, HIGH}},
+        {LR11x0::MODE_TX_HP, {LOW, HIGH}},
+        {LR11x0::MODE_TX_HF, {LOW, LOW}},
+        {LR11x0::MODE_GNSS, {LOW, LOW}},
+        {LR11x0::MODE_WIFI, {LOW, LOW}},
+        END_OF_MODE_TABLE,
+    };
+    radio.setRfSwitchTable(rfswitch_dio_pins, rfswitch_table);
+
+    // LR1121 TCXO Voltage 2.85~3.15V
+    radio.setTCXO(3.0);
+
+#endif
+
     display.fillScreen(BLACK);
     display.setTextSize(1);
 
@@ -1061,33 +1090,34 @@ void Original_Test_5()
         radio.setBandwidth(500.0);
         radio.setCurrentLimit(140);
         radio.setOutputPower(22);
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
         radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(500.0);
 
         radio.setCurrentLimit(240);
         radio.setOutputPower(17);
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
         radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(500.0);
 
         radio.setCurrentLimit(240);
         radio.setOutputPower(17);
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
         radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(1625.0);
 
         radio.setOutputPower(13);
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
         radio.setFrequency(LORA_FREQUENCY);
         radio.setBandwidth(1625.0);
 
         radio.setOutputPower(3);
+#elif defined T3_S3_LR1121
+        radio.setFrequency(LORA_FREQUENCY);
+        radio.setBandwidth(500.0);
+        radio.setOutputPower(LORA_OUTPUT_POWER);
 #endif
+
         radio.setSpreadingFactor(9);
         radio.setCodingRate(7);
         radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
@@ -1110,8 +1140,7 @@ void Original_Test_5()
         display.print("B:500kHz");
         display.setCursor(0, 40);
         display.print("O:22dBm");
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
         display.print("SX1276 Info");
 
         display.setFont(&Org_01);
@@ -1123,8 +1152,7 @@ void Original_Test_5()
         display.print("B:500kHz");
         display.setCursor(0, 40);
         display.print("O:17dBm");
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
         display.print("SX1278 Info");
 
         display.setFont(&Org_01);
@@ -1136,8 +1164,7 @@ void Original_Test_5()
         display.print("B:500kHz");
         display.setCursor(0, 40);
         display.print("O:17dBm");
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
         display.print("SX1280 Info");
 
         display.setFont(&Org_01);
@@ -1149,8 +1176,7 @@ void Original_Test_5()
         display.print("B:1625.0kHz");
         display.setCursor(0, 40);
         display.print("O:13dBm");
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
         display.print("SX1280PA Info");
 
         display.setFont(&Org_01);
@@ -1162,6 +1188,18 @@ void Original_Test_5()
         display.print("B:1625.0kHz");
         display.setCursor(0, 40);
         display.print("O:3dBm");
+#elif defined T3_S3_LR1121
+        display.print("LR1121 Info");
+
+        display.setFont(&Org_01);
+        display.setCursor(0, 20);
+        display.print("MODE:LORA");
+        display.setCursor(0, 26);
+        display.printf("F:%.1fMHz", LORA_FREQUENCY);
+        display.setCursor(0, 33);
+        display.print("B:500.0kHz");
+        display.setCursor(0, 40);
+        display.printf("O:%ddBm",LORA_OUTPUT_POWER);
 #endif
 
         display.setCursor(0, 53);
@@ -1647,19 +1685,18 @@ void Original_Test_Loop()
 
 #ifdef T3_S3_SX1262
     GFX_Print_TEST("SX1262 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
     GFX_Print_TEST("SX1276 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
     GFX_Print_TEST("SX1278 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
     GFX_Print_TEST("SX1280 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
     GFX_Print_TEST("SX1280PA walkie talkie test");
+#elif defined T3_S3_LR1121
+    GFX_Print_TEST("LR1121 walkie talkie test");
 #endif
+
     if (Skip_Current_Test == false)
     {
         Original_Test_5();
@@ -1722,35 +1759,67 @@ void Original_Test_Loop()
 
                             radio.begin();
 
+#if defined(LORA_RX) && defined(LORA_TX)
+                            // The SX1280 version needs to set RX, TX antenna switching pins
+                            radio.setRfSwitchPins(LORA_RX, LORA_TX);
+#endif
+
+#if defined(T3_S3_LR1121)
+                            // LR1121
+                            // set RF switch configuration for Wio WM1110
+                            // Wio WM1110 uses DIO5 and DIO6 for RF switching
+                            static const uint32_t rfswitch_dio_pins[] = {
+                                RADIOLIB_LR11X0_DIO5, RADIOLIB_LR11X0_DIO6,
+                                RADIOLIB_NC, RADIOLIB_NC, RADIOLIB_NC};
+
+                            static const Module::RfSwitchMode_t rfswitch_table[] = {
+                                // mode                  DIO5  DIO6
+                                {LR11x0::MODE_STBY, {LOW, LOW}},
+                                {LR11x0::MODE_RX, {HIGH, LOW}},
+                                {LR11x0::MODE_TX, {LOW, HIGH}},
+                                {LR11x0::MODE_TX_HP, {LOW, HIGH}},
+                                {LR11x0::MODE_TX_HF, {LOW, LOW}},
+                                {LR11x0::MODE_GNSS, {LOW, LOW}},
+                                {LR11x0::MODE_WIFI, {LOW, LOW}},
+                                END_OF_MODE_TABLE,
+                            };
+                            radio.setRfSwitchTable(rfswitch_dio_pins, rfswitch_table);
+
+                            // LR1121 TCXO Voltage 2.85~3.15V
+                            radio.setTCXO(3.0);
+
+#endif
+
 #ifdef T3_S3_SX1262
                             radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(140);
                             radio.setOutputPower(22);
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
                             radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(240);
                             radio.setOutputPower(17);
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
                             radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(500.0);
                             radio.setCurrentLimit(240);
                             radio.setOutputPower(17);
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
                             radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(1625.0);
                             radio.setOutputPower(13);
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
                             radio.setFrequency(LORA_FREQUENCY);
                             radio.setBandwidth(1625.0);
 
                             radio.setOutputPower(3);
+#elif defined T3_S3_LR1121
+                            radio.setFrequency(LORA_FREQUENCY);
+                            radio.setBandwidth(500.0);
+                            radio.setOutputPower(LORA_OUTPUT_POWER);
 #endif
+
                             radio.setSpreadingFactor(9);
                             radio.setCodingRate(7);
                             radio.setSyncWord(RADIOLIB_SX126X_SYNC_WORD_PRIVATE);
@@ -1771,18 +1840,16 @@ void Original_Test_Loop()
 
 #ifdef T3_S3_SX1262
                     GFX_Print_TEST("SX1262 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1276
+#elif defined T3_S3_SX1276
                     GFX_Print_TEST("SX1276 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1278
+#elif defined T3_S3_SX1278
                     GFX_Print_TEST("SX1278 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1280
+#elif defined T3_S3_SX1280
                     GFX_Print_TEST("SX1280 walkie talkie test");
-#endif
-#ifdef T3_S3_SX1280PA
+#elif defined T3_S3_SX1280PA
                     GFX_Print_TEST("SX1280PA walkie talkie test");
+#elif defined T3_S3_LR1121
+                    GFX_Print_TEST("LR1121 walkie talkie test");
 #endif
                     Original_Test_5();
 
