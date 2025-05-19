@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-04-22 14:59:56
+ * @LastEditTime: 2025-05-19 09:26:12
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -149,12 +149,12 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 | USB DFU On Boot                | Disabled                             |
 | CPU Frequency                   | 240MHz (WiFi)                    |
 | Flash Mode                         | QIO 80MHz                         |
-| Flash Size                           | 16MB (128Mb)                    |
+| Flash Size                           | 4MB (32Mb)                    |
 | Core Debug Level                | None                                 |
-| Partition Scheme                | 16M Flash (3MB APP/9.9MB FATFS) |
-| PSRAM                                | OPI PSRAM                         |
+| Partition Scheme                | Default 4M with spiffs (1.2MB APP/1.5MB SPIFFS) |
+| PSRAM                                | Disabled                        |
 | Arduino Runs On                  | Core 1                               |
-| Events Run On                     | Core 1                               |           
+| Events Run On                     | Core 1                               |               
 
 6. Select the correct port.
 
