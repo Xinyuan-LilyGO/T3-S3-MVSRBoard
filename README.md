@@ -48,7 +48,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 * Related documentation: 
     >[MAX98357A](./information/MAX98357AETE+T.pdf)
 * Dependent libraries: 
-    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+    >[Arduino_DriveBus-1.1.16]()
 
 ### 2. Microphone
 
@@ -58,7 +58,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 > * Related documentation: 
 >    >[MSM261S4030H0R](./information/MEMSensing-MSM261S4030H0R.pdf)
 > * Dependent libraries: 
->     >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+>     >[Arduino_DriveBus-1.1.16]()
 
 > #### T3-S3-MVSRBoard_V1.1 version
 > * Chip: MP34DT05-A
@@ -66,7 +66,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 > * Related documentation: 
 >    >[MP34DT05-A](./information/mp34dt05-a.pdf)
 > * Dependent libraries: 
->    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+>    >[Arduino_DriveBus-1.1.16]()
 
 ### 3. Vibration
 
@@ -79,7 +79,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 * Related documentation: 
     >[PCF85063ATL](./information/PCF85063ATL-1,118.pdf)
 * Dependent libraries: 
-    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+    >[Arduino_DriveBus-1.1.16]()
 
 ## SoftwareDeployment
 
