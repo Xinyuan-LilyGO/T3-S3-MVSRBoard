@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-05-19 09:25:05
+ * @LastEditTime: 2025-08-25 14:40:32
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -49,7 +49,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 * 相关资料：
     >[MAX98357A](./information/MAX98357AETE+T.pdf)
 * 依赖库：
-    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+    >[Arduino_DriveBus-1.1.16]()
 
 ### 2. 麦克风
 
@@ -59,7 +59,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 > * 相关资料：
 >    >[MSM261S4030H0R](./information/MEMSensing-MSM261S4030H0R.pdf)
 > * 依赖库：
->     >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+>     >[Arduino_DriveBus-1.1.16]()
 
 > #### T3-S3-MVSRBoard_V1.1 版本
 > * 芯片：MP34DT05-A
@@ -67,7 +67,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 > * 相关资料：
 >    >[MP34DT05-A](./information/mp34dt05-a.pdf)
 > * 依赖库：
->    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+>    >[Arduino_DriveBus-1.1.16]()
 
 ### 3. 振动
 
@@ -80,7 +80,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 * 相关资料：
     >[PCF85063ATL](./information/PCF85063ATL-1,118.pdf)
 * 依赖库：
-    >[Arduino_DriveBus-1.1.16](https://github.com/Xk-w/Arduino_DriveBus)
+    >[Arduino_DriveBus-1.1.16]()
 
 ## 软件部署
 
