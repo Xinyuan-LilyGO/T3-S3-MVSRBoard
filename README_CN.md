@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-12-23 09:55:48
+ * @LastEditTime: 2025-12-23 14:24:00
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -153,7 +153,7 @@ T3-S3-MVSRBoard为T3-S3_V1.2主板的背板设计，板载扬声器麦克风扩�
 | Flash Size                           | 4MB (32Mb)                    |
 | Core Debug Level                | None                                 |
 | Partition Scheme                | Huge APP (3MB No OTA/1MB SPIFFS) |
-| PSRAM                                | Disabled                        |
+| PSRAM                                | QSPI PSRAM                        |
 | Arduino Runs On                  | Core 1                               |
 | Events Run On                     | Core 1                               |        
 

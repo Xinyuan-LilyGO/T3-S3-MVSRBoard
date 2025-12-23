@@ -152,7 +152,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 | Flash Size                           | 4MB (32Mb)                    |
 | Core Debug Level                | None                                 |
 | Partition Scheme                | Huge APP (3MB No OTA/1MB SPIFFS) |
-| PSRAM                                | Disabled                        |
+| PSRAM                                | QSPI PSRAM                        |
 | Arduino Runs On                  | Core 1                               |
 | Events Run On                     | Core 1                               |               
 
