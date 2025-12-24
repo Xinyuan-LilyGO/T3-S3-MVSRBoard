@@ -2,7 +2,7 @@
  * @Description: None
  * @Author: LILYGO_L
  * @Date: 2023-09-11 16:13:14
- * @LastEditTime: 2025-12-23 09:55:33
+ * @LastEditTime: 2025-12-24 09:18:22
  * @License: GPL 3.0
 -->
 <h1 align = "center">T3-S3-MVSRBoard</h1>
@@ -182,7 +182,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 | DATA         | IO39       |
 | SD_MODE         | IO38       |
 
-> #### T-Display-S3-Pro-MVSRBoard_V1.0 version
+> #### T3-S3-MVSRBoard_V1.0 version
 > | Microphone pins  | ESP32S3 pins|
 > | :------------------: | :------------------:|
 > | BCLK         | IO47       |
@@ -190,7 +190,7 @@ The T3-S3-MVSRBoard is the backplate design for the T3-S3_V1.2 motherboard, feat
 > | DATA         | IO48       |
 > | EN         | IO35       |
 
-> #### T-Display-S3-Pro-MVSRBoard_V1.1 version
+> #### T3-S3-MVSRBoard_V1.1 version
 > | Microphone pins  | ESP32S3 pins|
 > | :------------------: | :------------------:|
 > | LRCLK         | IO15       |
